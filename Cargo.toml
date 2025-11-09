@@ -70,7 +70,7 @@ walkdir = "2"
 
 lazy_static = "1"
 
-sea-orm = { git = "https://github.com/oulover/sea-orm.git", branch = "master" }
+sea-orm = { version = "2.0.0-rc.17"}
 sqlparser = "0"
 
 serde = { version = "1.0.228" }

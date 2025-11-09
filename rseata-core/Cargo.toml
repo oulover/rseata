@@ -11,13 +11,13 @@ readme.workspace = true
 license.workspace = true
 
 [dependencies]
-tokio = {workspace = true,features = ["full"]}
-tonic = { workspace = true,features = ["server"]}
-tower = {workspace = true}
-anyhow =  { workspace = true }
-uuid = {workspace = true,features = ["v4"]}
-rseata-proto={path = "../rseata-proto"}
-serde = {workspace = true,features = ["derive"]}
+tokio = { workspace = true, features = ["full"] }
+tonic = { workspace = true, features = ["server"] }
+tower = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+rseata-proto = { path = "../rseata-proto", version = "0" }
+serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 async-trait = { workspace = true }
 serde_json = { workspace = true }

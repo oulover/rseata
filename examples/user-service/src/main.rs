@@ -15,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
 
     rseata::init().await;
 
-    let connect_url = dotenv::var("DEMO_1_DATABASE_URL")
+    let connect_url = dotenv::var("USER_DATABASE_URL")
         .unwrap_or("mysql://root:root@127.0.0.1:3306/user".to_string());
 
     let conn = ConnectionProxy::connect(&connect_url).await?;

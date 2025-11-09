@@ -34,7 +34,7 @@ rseata-micro = { path = "rseata-micro", optional = true }
 [workspace.package]
 authors = ["peng-ou"]
 description = "rust seata"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 
 rust-version = "1.90.0"

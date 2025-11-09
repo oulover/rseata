@@ -1529,7 +1529,7 @@ dependencies = [
  "dotenv",
  "example-proto",
  "rseata",
- "sea-orm",
+ "sea-orm 2.0.0-rc.16",
  "serde",
  "serde_json",
  "thiserror",
@@ -2175,7 +2175,7 @@ dependencies = [
  "rseata-core",
  "rseata-rm",
  "rseata-tm",
- "sea-orm",
+ "sea-orm 2.0.0-rc.17",
  "serde_json",
  "sqlparser",
 ]
@@ -2357,7 +2357,38 @@ dependencies = [
  "ouroboros",
  "pgvector",
  "rust_decimal",
- "sea-orm-macros",
+ "sea-orm-macros 2.0.0-rc.16",
+ "sea-query",
+ "sea-query-sqlx",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "strum",
+ "thiserror",
+ "time",
+ "tracing",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "sea-orm"
+version = "2.0.0-rc.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "296a092e16fbbcc3a9969eae3915ef11024b98a43f3b77ff5199bc626c462d7a"
+dependencies = [
+ "async-stream",
+ "async-trait",
+ "bigdecimal",
+ "chrono",
+ "derive_more",
+ "futures-util",
+ "itertools",
+ "log",
+ "ouroboros",
+ "pgvector",
+ "rust_decimal",
+ "sea-orm-macros 2.0.0-rc.18",
  "sea-query",
  "sea-query-sqlx",
  "sea-schema",
@@ -2376,6 +2407,20 @@ dependencies = [
 name = "sea-orm-macros"
 version = "2.0.0-rc.16"
 source = "git+https://github.com/oulover/sea-orm.git?branch=master#639e62e15e7a84c8941dcd2dcbf12306298ec023"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "sea-bae",
+ "syn 2.0.108",
+ "unicode-ident",
+]
+
+[[package]]
+name = "sea-orm-macros"
+version = "2.0.0-rc.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07e65b4d10f02744f19c203f2e02fac65bc718efdd98636ea445f0a8f1ee0c1d"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -3399,7 +3444,7 @@ dependencies = [
  "dotenv",
  "example-proto",
  "rseata",
- "sea-orm",
+ "sea-orm 2.0.0-rc.16",
  "serde",
  "serde_json",
  "thiserror",

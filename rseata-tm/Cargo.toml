@@ -16,14 +16,17 @@ rseata-core = { path = "../rseata-core", version = "0.1.1" }
 rseata-proto = { path = "../rseata-proto", version = "0.1.1" }
 
 dotenv = { workspace = true }
+async-trait = { workspace = true }
+anyhow = { workspace = true }
+
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 axum = { workspace = true }
-anyhow = { workspace = true }
+
 tokio = { workspace = true, features = ["full"] }
 tonic = { workspace = true }
 
-async-trait = { workspace = true }
+
 
 
 futures = {workspace = true}

@@ -3,34 +3,40 @@ mod impl_stream_trait;
 mod impl_transaction_session;
 mod impl_transaction_trait;
 
-use crate::sea_orm::transaction_proxy::impl_connection_trait::get_sql_pars_detect;
-use rseata_core::branch::branch_manager_outbound::BranchManagerOutbound;
-use rseata_core::branch::BranchType;
-use rseata_core::resource::Resource;
+use crate::sea_orm::at::connection_proxy::ATConnectionProxy;
+use crate::sea_orm::at::transaction_proxy::impl_connection_trait::get_sql_pars_detect;
 use rseata_core::RSEATA_CLIENT_SESSION;
+use rseata_core::branch::BranchType;
+use rseata_core::branch::branch_manager_outbound::BranchManagerOutbound;
+use rseata_core::resource::Resource;
 use rseata_rm::RSEATA_RM;
 use sea_orm::sqlx::{Column, Row, TypeInfo};
-use sea_orm::{
-    ConnectionTrait, DbErr, Statement,
-};
+use sea_orm::{ConnectionTrait, DbErr, Statement};
 use std::collections::HashMap;
 
-pub struct TransactionProxy {
-    inner: sea_orm::DatabaseTransaction,
+pub struct ATTransactionProxy {
+    at_connection_proxy: ATConnectionProxy,
+    sea_transaction: sea_orm::DatabaseTransaction,
 }
-impl TransactionProxy {
-    pub(crate) fn new(inner: sea_orm::DatabaseTransaction) -> Self {
-        Self { inner }
+impl ATTransactionProxy {
+    pub(crate) fn new(
+        at_connection_proxy: ATConnectionProxy,
+        sea_transaction: sea_orm::DatabaseTransaction,
+    ) -> Self {
+        Self {
+            at_connection_proxy,
+            sea_transaction,
+        }
     }
 }
 
-impl std::fmt::Debug for TransactionProxy {
+impl std::fmt::Debug for ATTransactionProxy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "DatabaseTransaction")
     }
 }
 
-impl TransactionProxy {
+impl ATTransactionProxy {
     pub(self) async fn prepare_undo_log(&self) -> Result<(), DbErr> {
         let session = RSEATA_CLIENT_SESSION.try_get().ok();
         println!(
@@ -144,11 +150,11 @@ impl TransactionProxy {
     }
 }
 
-impl TransactionProxy {
+impl ATTransactionProxy {
     async fn query_as_json(&self, sql: &str) -> Result<serde_json::Value, DbErr> {
         // 执行查询
         let mut stmt = Statement::from_string(
-            ConnectionTrait::get_database_backend(&self.inner),
+            ConnectionTrait::get_database_backend(&self.at_connection_proxy),
             sql.to_owned(),
         );
         let query_results = self.query_all_raw(stmt).await?;
@@ -193,7 +199,9 @@ impl TransactionProxy {
 
     async fn process_execute(&self, statement: &Statement) -> Result<(), DbErr> {
         println!("Processing execute: {:?}", statement);
-        let detect = get_sql_pars_detect(&ConnectionTrait::get_database_backend(&self.inner));
+        let detect = get_sql_pars_detect(&ConnectionTrait::get_database_backend(
+            &self.at_connection_proxy,
+        ));
         let parsed = sqlparser::parser::Parser::parse_sql(detect.as_ref(), statement.sql.as_str());
 
         match &parsed {
@@ -280,12 +288,15 @@ impl TransactionProxy {
 
                                 // todo : 把 before_image_select_sql 中的参数 替换为 statement.values 中对应的参数值
                                 let select_before = Statement::from_sql_and_values(
-                                    ConnectionTrait::get_database_backend(&self.inner),
+                                    ConnectionTrait::get_database_backend(
+                                        &self.at_connection_proxy,
+                                    ),
                                     before_image_select_sql.clone(),
                                     values.clone(), // 这里直接使用原始参数是不对的
                                 );
 
-                                let before_values = self.inner.query_all_raw(select_before).await;
+                                let before_values =
+                                    self.at_connection_proxy.query_all_raw(select_before).await;
                                 println!("r--select_before------------{:?}", before_values);
 
                                 if let Ok(old_values) = &before_values {
@@ -294,10 +305,13 @@ impl TransactionProxy {
                                         table_name
                                     );
                                     let key_select = Statement::from_string(
-                                        ConnectionTrait::get_database_backend(&self.inner),
+                                        ConnectionTrait::get_database_backend(
+                                            &self.at_connection_proxy,
+                                        ),
                                         key_sql,
                                     );
-                                    let key_select = self.inner.query_all_raw(key_select).await;
+                                    let key_select =
+                                        self.at_connection_proxy.query_all_raw(key_select).await;
                                     if let Ok(key_select) = key_select {
                                         let keys: Vec<_> = key_select
                                             .iter()
@@ -384,7 +398,10 @@ impl TransactionProxy {
                                     sql.push_str(format!(" WHERE {}", where_clause).as_str()); // 根据主键生成条件
                                 }
                                 println!("---back sql-------{}", sql);
-                                let back = self.inner.execute_unprepared(sql.as_str()).await;
+                                let back = self
+                                    .at_connection_proxy
+                                    .execute_unprepared(sql.as_str())
+                                    .await;
                                 println!("---back sql--back-----{:?}", back);
                             }
                             Err(e) => {
@@ -467,7 +484,10 @@ impl TransactionProxy {
                         sql.push_str(format!(" WHERE {}", where_clause).as_str()); // 根据主键生成条件
                     }
                     println!("---back sql-------{}", sql);
-                    let back = self.inner.execute_unprepared(sql.as_str()).await;
+                    let back = self
+                        .at_connection_proxy
+                        .execute_unprepared(sql.as_str())
+                        .await;
                     println!("---back sql--back-----{:?}", back);
                 }
                 Err(e) => {
@@ -498,7 +518,9 @@ impl TransactionProxy {
 
     async fn process_execute_qw(&self, statement: &Statement) -> Result<(), DbErr> {
         println!("Processing execute: {:?}", statement);
-        let detect = get_sql_pars_detect(&ConnectionTrait::get_database_backend(&self.inner));
+        let detect = get_sql_pars_detect(&ConnectionTrait::get_database_backend(
+            &self.at_connection_proxy,
+        ));
         let parsed = sqlparser::parser::Parser::parse_sql(detect.as_ref(), statement.sql.as_str());
 
         match &parsed {
@@ -548,7 +570,9 @@ impl TransactionProxy {
 
                                     // 解析before_image_select_sql，统计参数占位符数量
                                     let before_detect = get_sql_pars_detect(
-                                        &ConnectionTrait::get_database_backend(&self.inner),
+                                        &ConnectionTrait::get_database_backend(
+                                            &self.at_connection_proxy,
+                                        ),
                                     );
                                     let before_parsed = sqlparser::parser::Parser::parse_sql(
                                         before_detect.as_ref(),
@@ -586,12 +610,15 @@ impl TransactionProxy {
                                     // 为简化，我们直接使用原始values，但需要确保参数数量匹配
                                     // 这里先用原始参数值
                                     let select_before = Statement::from_sql_and_values(
-                                        ConnectionTrait::get_database_backend(&self.inner),
+                                        ConnectionTrait::get_database_backend(
+                                            &self.at_connection_proxy,
+                                        ),
                                         before_image_select_sql.clone(),
                                         values.clone(),
                                     );
 
-                                    let r = self.inner.query_all_raw(select_before).await;
+                                    let r =
+                                        self.at_connection_proxy.query_all_raw(select_before).await;
 
                                     println!("r--select_before------------{:?}", r);
 
@@ -652,21 +679,26 @@ impl TransactionProxy {
                                 } else {
                                     // 如果没有参数值，直接执行查询（可能不适用于参数化查询）
                                     let select_before = Statement::from_string(
-                                        ConnectionTrait::get_database_backend(&self.inner),
+                                        ConnectionTrait::get_database_backend(
+                                            &self.at_connection_proxy,
+                                        ),
                                         before_image_select_sql.clone(),
                                     );
 
-                                    let r = self.inner.query_all_raw(select_before).await;
+                                    let r =
+                                        self.at_connection_proxy.query_all_raw(select_before).await;
                                     println!("r--select_before------------{:?}", r);
                                 }
                             } else {
                                 // 如果没有WHERE子句，查询整个表
                                 let select_before = Statement::from_string(
-                                    ConnectionTrait::get_database_backend(&self.inner),
+                                    ConnectionTrait::get_database_backend(
+                                        &self.at_connection_proxy,
+                                    ),
                                     before_image_select_sql.clone(),
                                 );
 
-                                let r = self.inner.query_all_raw(select_before).await;
+                                let r = self.at_connection_proxy.query_all_raw(select_before).await;
                                 println!("r--select_before------------{:?}", r);
                             }
                         }
@@ -695,20 +727,24 @@ impl TransactionProxy {
 
                             if let Some(values) = &statement.values {
                                 let select_before = Statement::from_sql_and_values(
-                                    ConnectionTrait::get_database_backend(&self.inner),
+                                    ConnectionTrait::get_database_backend(
+                                        &self.at_connection_proxy,
+                                    ),
                                     before_image_select_sql.clone(),
                                     values.clone(),
                                 );
 
-                                let r = self.inner.query_all_raw(select_before).await;
+                                let r = self.at_connection_proxy.query_all_raw(select_before).await;
                                 println!("r--select_before_delete------------{:?}", r);
                             } else {
                                 let select_before = Statement::from_string(
-                                    ConnectionTrait::get_database_backend(&self.inner),
+                                    ConnectionTrait::get_database_backend(
+                                        &self.at_connection_proxy,
+                                    ),
                                     before_image_select_sql.clone(),
                                 );
 
-                                let r = self.inner.query_all_raw(select_before).await;
+                                let r = self.at_connection_proxy.query_all_raw(select_before).await;
                                 println!("r--select_before_delete------------{:?}", r);
                             }
                         }

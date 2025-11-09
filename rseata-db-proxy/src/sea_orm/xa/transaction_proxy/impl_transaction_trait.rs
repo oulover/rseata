@@ -1,15 +1,17 @@
-use crate::sea_orm::transaction_proxy::TransactionProxy;
-use sea_orm::{AccessMode, DbErr, IsolationLevel, TransactionTrait};
+use crate::sea_orm::xa::transaction_proxy::XATransactionProxy;
+use sea_orm::{
+    AccessMode, DbErr, IsolationLevel,
+    TransactionTrait,
+};
 use std::fmt::{Debug, Display};
 use std::pin::Pin;
 
 #[async_trait::async_trait]
-impl TransactionTrait for TransactionProxy {
-    type Transaction = sea_orm::DatabaseTransaction;
+impl TransactionTrait for XATransactionProxy {
+    type Transaction = XATransactionProxy;
 
     async fn begin(&self) -> Result<Self::Transaction, DbErr> {
-        println!("TransactionProxy------------begin");
-        self.inner.begin().await
+        self.xa_connection_proxy.begin().await
     }
 
     async fn begin_with_config(
@@ -17,8 +19,7 @@ impl TransactionTrait for TransactionProxy {
         isolation_level: Option<IsolationLevel>,
         access_mode: Option<AccessMode>,
     ) -> Result<Self::Transaction, DbErr> {
-        println!("TransactionProxy------------begin_with_config");
-        self.inner
+        self.xa_connection_proxy
             .begin_with_config(isolation_level, access_mode)
             .await
     }
@@ -32,8 +33,7 @@ impl TransactionTrait for TransactionProxy {
         T: Send,
         E: Display + Debug + Send,
     {
-        println!("TransactionProxy------------transaction");
-        self.inner.transaction(callback).await
+        self.xa_connection_proxy.transaction(callback).await
     }
 
     async fn transaction_with_config<F, T, E>(
@@ -50,8 +50,7 @@ impl TransactionTrait for TransactionProxy {
         T: Send,
         E: Display + Debug + Send,
     {
-        println!("TransactionProxy------------transaction_with_config");
-        self.inner
+        self.xa_connection_proxy
             .transaction_with_config(callback, isolation_level, access_mode)
             .await
     }

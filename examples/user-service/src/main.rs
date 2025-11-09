@@ -1,6 +1,5 @@
 use crate::context::AppContext;
 use std::sync::Arc;
-use rseata::db_proxy::sea_orm::ConnectionProxy;
 
 mod context;
 mod grpc_service;
@@ -18,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
     let connect_url = dotenv::var("USER_DATABASE_URL")
         .unwrap_or("mysql://root:root@127.0.0.1:3306/user".to_string());
 
-    let conn = ConnectionProxy::connect(&connect_url).await?;
+    let conn = rseata::db_proxy::sea_orm::ATConnectionProxy::connect_mysql(&connect_url).await?;
     let app_ctx = Arc::new(AppContext { db_conn: conn });
 
     tokio::spawn(grpc_service::start(app_ctx.clone()));

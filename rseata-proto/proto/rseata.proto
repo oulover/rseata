@@ -96,7 +96,6 @@ message GlobalStatusResponse {
 message GlobalReportRequest {
   string xid = 1;
   GlobalStatusProto global_status = 2;
-  BaseResponse base = 3;
 }
 
 message GlobalReportResponse {

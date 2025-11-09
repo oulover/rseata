@@ -99,7 +99,8 @@ impl TransactionManagerService for TCGrpcService {
             .coordinator
             .global_report(
                 &request.xid.into(),
-                GlobalStatus::from_code(request.global_status).unwrap(),
+                GlobalStatus::from_code(request.global_status)
+                    .map_err(|e| tonic::Status::internal(e.to_string()))?,
             )
             .await
             .map_err(|e| tonic::Status::internal(e.to_string()))?;

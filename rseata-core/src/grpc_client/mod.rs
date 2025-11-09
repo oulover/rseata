@@ -4,11 +4,15 @@ use tonic::metadata::{MetadataKey, MetadataValue};
 use tonic::service::Interceptor;
 use tonic::{Code, Request, Status};
 
-pub mod grpc_client_impl;
+pub mod tm_grpc_client;
 pub mod lazy;
-pub mod source;
+pub mod rm_grpc_client;
 
-/// Rust does not allow impl LazyStateInit for structs from external crates
+#[derive(Debug, Clone)]
+pub struct GrpcContext{
+    pub endpoint:String,
+}
+
 #[derive(Clone)]
 pub struct GrpcClient<T>(pub T);
 impl<T> std::ops::Deref for GrpcClient<T> {
@@ -43,20 +47,20 @@ impl Interceptor for RseataInterceptor {
                                 request.metadata_mut().insert(metadata_key, metadata_value);
                             } else {
                                 return Err(Status::new(
-                                    Code::InvalidArgument,
+                                    Code::Internal,
                                     "RSEATA_XID is invalid",
                                 ));
                             }
                         } else {
                             return Err(Status::new(
-                                Code::InvalidArgument,
+                                Code::Internal,
                                 "RSEATA_XID_KEY is invalid",
                             ));
                         }
                     }
                 } else {
                     return Err(Status::new(
-                        Code::InvalidArgument,
+                        Code::Internal,
                         "RSEATA_XID_KEY is invalid",
                     ));
                 }

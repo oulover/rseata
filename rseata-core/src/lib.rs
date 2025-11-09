@@ -16,6 +16,7 @@ pub mod session;
 pub mod store;
 pub mod transaction;
 pub mod types;
+mod config;
 
 pub static EMPTY_STR: &'static str = "";
 pub static RSEATA_VERSION: &'static str = "0.0.1";

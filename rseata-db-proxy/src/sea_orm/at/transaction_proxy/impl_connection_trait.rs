@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use crate::sea_orm::transaction_proxy::TransactionProxy;
+use crate::sea_orm::at::transaction_proxy::ATTransactionProxy;
 use rseata_core::RSEATA_CLIENT_SESSION;
 use sea_orm::sqlx::Row;
 use sea_orm::{ConnectionTrait, DbBackend, DbErr, ExecResult, QueryResult, Statement};
@@ -7,10 +7,10 @@ use sqlparser::dialect::{Dialect, MySqlDialect, PostgreSqlDialect, SQLiteDialect
 use sqlparser::parser::Parser;
 
 #[async_trait::async_trait]
-impl ConnectionTrait for TransactionProxy {
+impl ConnectionTrait for ATTransactionProxy {
     fn get_database_backend(&self) -> DbBackend {
         println!("Transaction------get_database_backend----------------------");
-        ConnectionTrait::get_database_backend(&self.inner)
+        ConnectionTrait::get_database_backend(&self.at_connection_proxy)
     }
 
     async fn execute_raw(&self, stmt: Statement) -> Result<ExecResult, DbErr> {
@@ -18,21 +18,21 @@ impl ConnectionTrait for TransactionProxy {
         println!("Transaction------execute_raw------------{:?}", session);
         self.process_execute(&stmt).await.ok();
 
-        self.inner.execute_raw(stmt).await
+        self.at_connection_proxy.execute_raw(stmt).await
     }
     async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult, DbErr> {
         println!("Transaction------execute_unprepared----------------------");
-        self.inner.execute_unprepared(sql).await
+        self.at_connection_proxy.execute_unprepared(sql).await
     }
 
     async fn query_one_raw(&self, stmt: Statement) -> Result<Option<QueryResult>, DbErr> {
         println!("Transaction------query_one_raw----------------------");
-        self.inner.query_one_raw(stmt).await
+        self.at_connection_proxy.query_one_raw(stmt).await
     }
 
     async fn query_all_raw(&self, stmt: Statement) -> Result<Vec<QueryResult>, DbErr> {
         println!("Transaction------query_all_raw----------------------");
-        self.inner.query_all_raw(stmt).await
+        self.at_connection_proxy.query_all_raw(stmt).await
     }
 }
 

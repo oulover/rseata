@@ -19,7 +19,7 @@ async fn main() -> anyhow::Result<()> {
     let connect_url = dotenv::var("ORDER_DATABASE_URL")
         .unwrap_or("mysql://root:root@127.0.0.1:3306/order".to_string());
 
-    let conn = rseata::db_proxy::sea_orm::ConnectionProxy::connect(&connect_url).await?;
+    let conn = rseata::db_proxy::sea_orm::ATConnectionProxy::connect_mysql(&connect_url).await?;
 
     let user_endpoint =
         dotenv::var("USER_ENDPOINT").unwrap_or(String::from("http://127.0.0.1:9001"));

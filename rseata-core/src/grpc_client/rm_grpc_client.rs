@@ -1,6 +1,7 @@
+use std::str::FromStr;
 use async_trait::async_trait;
 use crate::grpc_client::lazy::{LazyState, LazyStateInit};
-use crate::grpc_client::{GrpcClient, RseataInterceptor};
+use crate::grpc_client::{GrpcClient, GrpcContext, RseataInterceptor};
 use rseata_proto::rseata_proto::proto::resource_manager_service_client::ResourceManagerServiceClient;
 use tonic::codegen::InterceptedService;
 use tonic::transport::{Channel, Endpoint};
@@ -14,11 +15,12 @@ pub struct RMGrpcClient {
 #[async_trait]
 impl LazyStateInit for GrpcClient<RMGrpcClient> {
     type Error = anyhow::Error;
-    type Context = ();
+    type Context = GrpcContext;
     type InterceptorType = RseataInterceptor;
 
-    async fn init(_: &Self::Context) -> Result<Self, Self::Error> {
-        let channel = Endpoint::from_static("http://127.0.0.1:9811")
+    async fn init(ctx: &Self::Context) -> Result<Self, Self::Error> {
+        let channel = Endpoint::from_str(&ctx.endpoint)
+            .map_err(|e| anyhow::Error::msg(e.to_string()))?
             .connect()
             .await?;
         let client = ResourceManagerServiceClient::with_interceptor(channel, RseataInterceptor);

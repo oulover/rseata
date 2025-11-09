@@ -1,5 +1,5 @@
-use crate::sea_orm::connection_proxy::ConnectionProxy;
-use crate::sea_orm::transaction_proxy::TransactionProxy;
+use crate::sea_orm::at::connection_proxy::ATConnectionProxy;
+use crate::sea_orm::at::transaction_proxy::ATTransactionProxy;
 use rseata_core::RSEATA_CLIENT_SESSION;
 use rseata_core::transaction::transaction_manager::TransactionManager;
 use rseata_tm::RSEATA_TM;
@@ -11,8 +11,8 @@ use std::fmt::{Debug, Display};
 use std::pin::Pin;
 
 #[async_trait::async_trait]
-impl TransactionTrait for ConnectionProxy {
-    type Transaction = TransactionProxy;
+impl TransactionTrait for ATConnectionProxy {
+    type Transaction = ATTransactionProxy;
 
     async fn begin(&self) -> Result<Self::Transaction, DbErr> {
         self.begin_with_config(None, None).await
@@ -25,7 +25,7 @@ impl TransactionTrait for ConnectionProxy {
     ) -> Result<Self::Transaction, DbErr> {
         println!("------begin_with_config----------------------");
         let result = self
-            .inner
+            .sea_conn
             .begin_with_config(isolation_level, access_mode)
             .await;
         // 是否开启全局事务
@@ -63,7 +63,7 @@ impl TransactionTrait for ConnectionProxy {
                         }
                     }
                 }
-                Ok(TransactionProxy::new(t))
+                Ok(ATTransactionProxy::new(self.clone(), t))
             }
         }
     }

@@ -5,37 +5,44 @@ mod impl_transaction_trait;
 use sea_orm::error::*;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
+use sea_orm::ConnectionTrait;
 
 #[derive(Clone)]
-pub struct ConnectionProxy {
-    url: String,
-    inner: sea_orm::DatabaseConnection,
+pub struct XAConnectionProxy {
+    pub url: String,
+    pub sea_connection: sea_orm::DatabaseConnection,
 }
-impl ConnectionProxy {
-    pub async fn connect(url: &str) -> Result<Self, DbErr> {
+impl XAConnectionProxy {
+    pub async fn connect_mysql(url: &str) -> Result<Self, DbErr> {
         let t = sea_orm::Database::connect(url).await?;
         Ok(Self {
             url: url.to_string(),
-            inner: t,
+            sea_connection: t,
         })
     }
 }
-impl Deref for ConnectionProxy {
+impl XAConnectionProxy {
+    async fn xa_start(&self, xa_id: &str) -> Result<sea_orm::ExecResult, DbErr> {
+        let sql = format!("XA START '{xa_id}'");
+        self.execute_unprepared(&sql).await
+    }
+}
+impl Deref for XAConnectionProxy {
     type Target = sea_orm::DatabaseConnection;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.sea_connection
     }
 }
-impl DerefMut for ConnectionProxy {
+impl DerefMut for XAConnectionProxy {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
+        &mut self.sea_connection
     }
 }
 
-impl Debug for ConnectionProxy {
+impl Debug for XAConnectionProxy {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.inner.fmt(f)
+        self.sea_connection.fmt(f)
     }
 }
 

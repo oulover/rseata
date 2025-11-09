@@ -111,7 +111,13 @@ pub(crate) async fn start_grpc_server(ctx: Arc<AppContext>) -> anyhow::Result<()
 }
 ```
 
+## 🙏 致谢
 
+感谢 Seata 项目提供的设计灵感
+
+感谢 Tonic 提供的 gRPC 框架
+
+感谢 SeaORM 提供的 ORM 支持
 
 
 

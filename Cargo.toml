@@ -25,11 +25,11 @@ keywords.workspace = true
 readme.workspace = true
 
 [dependencies]
-rseata-core = { path = "rseata-core", optional = true }
-rseata-tm = { path = "rseata-tm", optional = true }
-rseata-rm = { path = "rseata-rm", optional = true }
-rseata-db-proxy = { path = "rseata-db-proxy", features = ["default"], optional = true }
-rseata-micro = { path = "rseata-micro", optional = true }
+rseata-core = { version = "0.1.1", path = "rseata-core", optional = true }
+rseata-tm = { version = "0.1.1", path = "rseata-tm", optional = true }
+rseata-rm = { version = "0.1.1", path = "rseata-rm", optional = true }
+rseata-db-proxy = { version = "0.1.1", path = "rseata-db-proxy", features = ["default"], optional = true }
+rseata-micro = { version = "0.1.1", path = "rseata-micro", optional = true }
 
 [workspace.package]
 authors = ["peng-ou"]
@@ -41,7 +41,7 @@ rust-version = "1.90.0"
 license = "Apache-2.0"
 repository = "https://github.com/oulover/rseata"
 homepage = "https://github.com/oulover/rseata"
-keywords = ["seata","seata"]
+keywords = ["seata", "seata"]
 readme = "./README.md"
 
 [workspace.dependencies]
@@ -73,7 +73,7 @@ lazy_static = "1"
 sea-orm = { git = "https://github.com/oulover/sea-orm.git", branch = "master" }
 sqlparser = "0"
 
-serde = {version = "1.0.228"}
+serde = { version = "1.0.228" }
 serde_json = "1"
 thiserror = "2"
 async_once = "0"

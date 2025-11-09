@@ -1529,7 +1529,7 @@ dependencies = [
  "dotenv",
  "example-proto",
  "rseata",
- "sea-orm 2.0.0-rc.16",
+ "sea-orm",
  "serde",
  "serde_json",
  "thiserror",
@@ -2175,7 +2175,7 @@ dependencies = [
  "rseata-core",
  "rseata-rm",
  "rseata-tm",
- "sea-orm 2.0.0-rc.17",
+ "sea-orm",
  "serde_json",
  "sqlparser",
 ]
@@ -2357,38 +2357,7 @@ dependencies = [
  "ouroboros",
  "pgvector",
  "rust_decimal",
- "sea-orm-macros 2.0.0-rc.16",
- "sea-query",
- "sea-query-sqlx",
- "serde",
- "serde_json",
- "sqlx",
- "strum",
- "thiserror",
- "time",
- "tracing",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "sea-orm"
-version = "2.0.0-rc.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "296a092e16fbbcc3a9969eae3915ef11024b98a43f3b77ff5199bc626c462d7a"
-dependencies = [
- "async-stream",
- "async-trait",
- "bigdecimal",
- "chrono",
- "derive_more",
- "futures-util",
- "itertools",
- "log",
- "ouroboros",
- "pgvector",
- "rust_decimal",
- "sea-orm-macros 2.0.0-rc.18",
+ "sea-orm-macros",
  "sea-query",
  "sea-query-sqlx",
  "sea-schema",
@@ -2417,24 +2386,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "sea-orm-macros"
-version = "2.0.0-rc.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07e65b4d10f02744f19c203f2e02fac65bc718efdd98636ea445f0a8f1ee0c1d"
-dependencies = [
- "heck 0.5.0",
- "proc-macro2",
- "quote",
- "sea-bae",
- "syn 2.0.108",
- "unicode-ident",
-]
-
-[[package]]
 name = "sea-query"
-version = "1.0.0-rc.16"
+version = "1.0.0-rc.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab2bc1fe7bb8366b536efc69a68e48321671a1030c565b206dc1a1a5ce1cf815"
+checksum = "30d190945ff6b2914ef0631c1933ef67ee142b15f00b72d40bf241147d24b522"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -2479,11 +2434,11 @@ dependencies = [
 
 [[package]]
 name = "sea-schema"
-version = "0.17.0-rc.10"
+version = "0.17.0-rc.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1403428d34276a93f3eb4401730ba6346bd0d04cbbea8f6973916a35e726286f"
+checksum = "09cb79f2d0fe3a3ca7852eb1c61590452674700fdeb9f07656b9eb16f8d1990b"
 dependencies = [
- "futures",
+ "async-trait",
  "sea-query",
  "sea-query-sqlx",
  "sea-schema-derive",
@@ -3444,7 +3399,7 @@ dependencies = [
  "dotenv",
  "example-proto",
  "rseata",
- "sea-orm 2.0.0-rc.16",
+ "sea-orm",
  "serde",
  "serde_json",
  "thiserror",

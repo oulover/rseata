@@ -73,7 +73,7 @@ lazy_static = "1"
 sea-orm = { git = "https://github.com/oulover/sea-orm.git", branch = "master" }
 sqlparser = "0"
 
-serde = "1"
+serde = {version = "1.0.228"}
 serde_json = "1"
 thiserror = "2"
 async_once = "0"

@@ -1,0 +1,29 @@
+[package]
+name = "rseata-tm"
+authors.workspace = true
+description.workspace = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+
+[dependencies]
+
+rseata-core = { path = "../rseata-core" }
+rseata-proto = { path = "../rseata-proto" }
+
+dotenv = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+axum = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tonic = { workspace = true }
+
+async-trait = { workspace = true }
+
+
+futures = {workspace = true}
+lazy_static= {workspace = true}

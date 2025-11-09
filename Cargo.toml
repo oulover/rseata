@@ -1,0 +1,118 @@
+[workspace]
+resolver = "3"
+members = [
+    "rseata-core",
+    "rseata-db-proxy",
+    "rseata-micro",
+    "rseata-proto",
+    "rseata-rm",
+    "rseata-tc",
+    "rseata-tm",
+    "examples/user-service",
+    "examples/order-service",
+    "examples/example-proto"
+]
+
+[package]
+name = "rseata"
+authors.workspace = true
+description.workspace = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+
+[dependencies]
+rseata-core = { path = "rseata-core", optional = true }
+rseata-tm = { path = "rseata-tm", optional = true }
+rseata-rm = { path = "rseata-rm", optional = true }
+rseata-db-proxy = { path = "rseata-db-proxy", features = ["default"], optional = true }
+rseata-micro = { path = "rseata-micro", optional = true }
+
+[workspace.package]
+authors = ["peng-ou"]
+description = "rust seata"
+version = "0.1.0"
+edition = "2024"
+
+rust-version = "1.90.0"
+license = "Apache-2.0"
+repository = "https://github.com/oulover/rseata"
+homepage = "https://github.com/oulover/rseata"
+keywords = ["seata","seata"]
+readme = "./README.md"
+
+[workspace.dependencies]
+dotenv = "0"
+tracing = "0"
+tracing-subscriber = "0"
+opentelemetry = "0.31.0"
+opentelemetry-otlp = "0.31.0"
+opentelemetry_sdk = "0.31.0"
+tokio = "1"
+axum = "0.8"
+anyhow = "1"
+async-trait = "0"
+prost = "0"
+prost-types = "0"
+tonic = "0"
+tonic-prost = "0"
+tower = "0"
+uuid = "1"
+futures = "0"
+
+tonic-build = "0"
+prost-build = "0"
+tonic-prost-build = "0"
+walkdir = "2"
+
+lazy_static = "1"
+
+sea-orm = { git = "https://github.com/oulover/sea-orm.git", branch = "master" }
+sqlparser = "0"
+
+serde = "1"
+serde_json = "1"
+thiserror = "2"
+async_once = "0"
+
+proc-macro2 = "1"
+syn = "1"
+quote = "1.0"
+darling = "0"
+proc-macro-error = "1"
+log = "0.4.27"
+chrono = "0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+incremental = false
+
+
+
+[features]
+default = ["full"]
+tm = ["rseata-core", "rseata-tm"]
+rm = ["rseata-core", "rseata-rm"]
+
+# db
+
+mysql = ["rseata-db-proxy", "rseata-db-proxy/mysql"]
+postgres = ["rseata-db-proxy", "rseata-db-proxy/postgres"]
+# orm
+sea_orm = ["rseata-db-proxy/sea_orm"]
+diesel = ["rseata-db-proxy/diesel"]
+
+micros = ["rseata-micro"]
+full = ["tm", "rm", "mysql", "micros", "sea_orm"]
+
+[package.metadata.docs.rs]
+features = ["full"]
+
+

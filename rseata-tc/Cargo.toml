@@ -1,0 +1,31 @@
+[package]
+name = "rseata-tc"
+authors.workspace = true
+description.workspace = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+
+[dependencies]
+dotenv = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+opentelemetry = { workspace = true, features = ["trace"] }
+opentelemetry-otlp = { workspace = true, features = ["tokio"] }
+opentelemetry_sdk = { workspace = true }
+axum = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tonic = { workspace = true }
+
+async-trait = { workspace = true }
+rseata-core = { path = "../rseata-core" }
+rseata-proto = { path = "../rseata-proto" }
+uuid = { workspace = true, features = ["v4"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }

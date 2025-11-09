@@ -1,0 +1,28 @@
+[package]
+name = "rseata-db-proxy"
+authors.workspace = true
+description.workspace = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+
+[features]
+default = ["mysql"]
+mysql = []
+postgres = []
+sea_orm=[]
+diesel=[]
+
+[dependencies]
+rseata-tm = { path = "../rseata-tm"  }
+rseata-rm = { path = "../rseata-rm"  }
+rseata-core = { path = "../rseata-core" }
+sqlparser={workspace = true}
+
+serde_json={workspace = true}
+
+sea-orm={workspace = true , features = [ "debug-print", "runtime-tokio-native-tls", "sqlx-mysql" ,"proxy"]}
+async-trait = {workspace = true}

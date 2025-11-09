@@ -1,0 +1,20 @@
+[package]
+name = "rseata-error-derive"
+authors.workspace = true
+description.workspace = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = { workspace = true, features = ["span-locations", "proc-macro"] }
+syn = { workspace = true, features = ["parsing", "printing"] }
+quote = {workspace = true}
+darling = {workspace = true}
+proc-macro-error ={workspace = true}

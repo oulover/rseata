@@ -1,0 +1,27 @@
+[package]
+name = "example-proto"
+authors.workspace = true
+description.workspace = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+
+[features]
+default = ["client", "server"]
+client = []
+server = []
+
+[dependencies]
+tonic={workspace = true}
+prost={workspace = true}
+tonic-prost ={workspace = true}
+anyhow =  { workspace = true }
+
+rseata-core = {path = "../../rseata-core" }
+
+[build-dependencies]
+tonic-prost-build ={workspace = true}
+walkdir = {workspace = true}

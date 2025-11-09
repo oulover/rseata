@@ -1,0 +1,243 @@
+syntax = "proto3";
+
+package cn.olbe.grpc.rust.seata.core;
+
+// ================== Base Types ==================
+enum BranchTypeProto {
+  AT = 0;
+  TCC = 1;
+  SAGA = 2;
+  XA = 3;
+}
+
+enum GlobalStatusProto {
+  UnKnown = 0;
+  Begin = 1;
+  Committing = 2;
+  CommitRetrying = 3;
+  Rollbacking = 4;
+  RollbackRetrying = 5;
+  TimeoutRollbacking = 6;
+  TimeoutRollbackRetrying = 7;
+  Committed = 8;
+  CommitFailed = 9;
+  Rollbacked = 10;
+  RollbackFailed = 11;
+  TimeoutRollbacked = 12;
+  TimeoutRollbackFailed = 13;
+  Finished = 14;
+}
+
+enum BranchStatusProto {
+  Normal = 0;
+  PhaseOne_Failed = 1;
+  PhaseOne_Timeout = 2;
+  PhaseOne_Done = 3;
+  PhaseTwo_Committed = 4;
+  PhaseTwo_CommitFailed_Retryable = 5;
+  PhaseTwo_CommitFailed_Unretryable = 6;
+  PhaseTwo_Rollbacked = 7;
+  PhaseTwo_RollbackFailed_Retryable = 8;
+  PhaseTwo_RollbackFailed_Unretryable = 9;
+}
+
+// 统一错误处理：
+// 参数错误、网络问题 → gRPC Status
+// 业务逻辑错误（分支注册失败、锁冲突等）→ result_code
+message BaseResponse {
+  uint32 result_code = 1;
+  optional string message = 2;
+}
+
+// ================== Request/Response Messages ==================
+message GlobalBeginRequest {
+  string application_id = 1;
+  string transaction_service_group = 2;
+  string transaction_name = 3;
+  uint64 timeout_millis = 4;
+  optional string extra_data = 5;
+}
+
+message GlobalBeginResponse {
+  string xid = 1;
+  BaseResponse base = 2;
+}
+
+message GlobalCommitRequest {
+  string xid = 1;
+  optional string extra_data = 2;
+}
+
+message GlobalCommitResponse {
+  GlobalStatusProto global_status = 1;
+  BaseResponse base = 2;
+}
+
+message GlobalRollbackRequest {
+  string xid = 1;
+  optional string extra_data = 2;
+}
+
+message GlobalRollbackResponse {
+  GlobalStatusProto global_status = 1;
+  BaseResponse base = 2;
+}
+
+message GlobalStatusRequest {
+  string xid = 1;
+  string extra_data = 2;
+}
+
+message GlobalStatusResponse {
+  GlobalStatusProto global_status = 1;
+  BaseResponse base = 2;
+}
+
+message GlobalReportRequest {
+  string xid = 1;
+  GlobalStatusProto global_status = 2;
+  BaseResponse base = 3;
+}
+
+message GlobalReportResponse {
+  GlobalStatusProto global_status = 1;
+  BaseResponse base = 2;
+}
+
+
+message ManagedResourcesResponse {
+  map<string, ResourceProto> resources = 1;
+  BaseResponse base = 2;
+}
+
+message GetGlobalStatusRequest {
+  BranchTypeProto branchType = 1;
+  string xid = 2;
+}
+
+
+message BranchRegisterRequest {
+  BranchTypeProto branchType = 1;
+  string resourceId = 2;
+  uint64 clientId = 3;
+  string xid = 4;
+  string applicationData = 5;
+  string lockKeys = 6;
+}
+
+message BranchRegisterResponse {
+  uint64 branchId = 1;
+  BaseResponse base = 2;
+}
+
+message BranchReportRequest {
+  BranchTypeProto branchType = 1;
+  string xid = 2;
+  uint64 branchId = 3;
+  BranchStatusProto status = 4;
+  string applicationData = 5;
+}
+
+message LockQueryRequest {
+  BranchTypeProto branchType = 1;
+  string resourceId = 2;
+  string xid = 3;
+  string lockKeys = 4;
+}
+
+message LockQueryResponse {
+  bool locked = 1;
+  BaseResponse base = 2;
+}
+message ResourceProto {
+  string resourceGroupId = 1;
+  string resourceId = 2;
+  uint64 clientId=3;
+  BranchTypeProto branchType = 4;
+}
+
+//message RegisterResourceResponse{
+//  BaseResponse base = 1;
+//}
+message UnregisterResourceResponse{
+  BaseResponse base = 1;
+}
+
+message BranchTypeResponse {
+  BranchTypeProto branchType = 1;
+  BaseResponse base = 2;
+}
+
+message BranchStatusResponse{
+  BranchStatusProto branchStatus = 1;
+  BaseResponse base = 2;
+}
+message GetManagedResourcesRequest{}
+message GetBranchTypeRequest{}
+message BranchReportResponse{}
+
+// ================== Service Definition ==================
+service TransactionManagerService {
+  rpc GlobalBegin(GlobalBeginRequest) returns (GlobalBeginResponse);
+  rpc GlobalCommit(GlobalCommitRequest) returns (GlobalCommitResponse);
+  rpc GlobalRollback(GlobalRollbackRequest) returns (GlobalRollbackResponse);
+  rpc GetGlobalStatus(GlobalStatusRequest) returns (GlobalStatusResponse);
+  rpc GlobalReport(GlobalReportRequest) returns (GlobalReportResponse);
+}
+
+service ResourceManagerService {
+  rpc RegisterResource(stream ResourceProto) returns (stream ResourceInstruction);
+  rpc UnregisterResource(ResourceProto) returns (UnregisterResourceResponse);
+  rpc BranchRegister(BranchRegisterRequest) returns (BranchRegisterResponse);
+  rpc BranchReport(BranchReportRequest) returns (BranchReportResponse);
+  rpc LockQuery(LockQueryRequest) returns (LockQueryResponse);
+}
+
+message HealthCheck{
+  uint64 timeout_millis = 4;
+}
+
+message BranchCommitInstruction {
+  BranchTypeProto branchType = 1;
+  string xid = 2;
+  uint64 branchId = 3;
+  string resourceId = 4;
+  string applicationData = 5;
+}
+
+message BranchRollbackInstruction {
+  BranchTypeProto branchType = 1;
+  string xid = 2;
+  uint64 branchId = 3;
+  string resourceId = 4;
+  string applicationData = 5;
+}
+
+
+message ResourceInstruction {
+  oneof instruction {
+    BranchCommitInstruction commit = 1;
+    BranchRollbackInstruction rollback = 2;
+  }
+  uint64 instruction_id = 10;
+}
+
+
+service HealthCheckService {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+  rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse);
+}
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;
+}
+

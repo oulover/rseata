@@ -1,0 +1,19 @@
+[package]
+name = "rseata-micro"
+authors.workspace = true
+description.workspace = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = { version = "1", features = ["span-locations", "proc-macro"] }
+syn = { version ="1", features = ["full"] }
+quote = "1"
+proc-macro-error = "1"

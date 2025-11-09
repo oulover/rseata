@@ -1,0 +1,17 @@
+[package]
+name = "rseata-error"
+authors.workspace = true
+description.workspace = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+
+[dependencies]
+rseata-error-derive = { path = "./crates/rseata-error-derive" }
+
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tonic = { workspace = true }

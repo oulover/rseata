@@ -1,0 +1,24 @@
+[package]
+name = "rseata-core"
+authors.workspace = true
+description.workspace = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+
+[dependencies]
+tokio = {workspace = true,features = ["full"]}
+tonic = { workspace = true,features = ["server"]}
+tower = {workspace = true}
+anyhow =  { workspace = true }
+uuid = {workspace = true,features = ["v4"]}
+rseata-proto={path = "../rseata-proto"}
+serde = {workspace = true,features = ["derive"]}
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+log = "0.4.28"

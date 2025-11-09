@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package cn.olbe.grpc.rust.examples.proto.user;
+
+service UserService {
+  rpc GetUserById(GetUserByIdRequest) returns (GetUserByIdResponse);
+  rpc AddUser(AddUserRequest) returns (AddUserResponse);
+}
+
+message User{
+  uint64 id = 1;
+  string name = 2;
+  optional int32 age = 3;
+  optional int32 sex = 4;
+}
+
+message AddUserRequest{
+  string name = 2;
+  optional int32 age = 3;
+  optional int32 sex = 4;
+}
+
+message AddUserResponse {
+  User user = 1;
+}
+
+message GetUserByIdRequest {
+  uint64 id = 2;
+}
+
+message GetUserByIdResponse {
+  User user = 1;
+}
+

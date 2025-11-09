@@ -25,5 +25,5 @@ sqlparser={workspace = true}
 
 serde_json={workspace = true}
 
-sea-orm={ version = "2.0.0-rc.17",workspace = true , features = [ "debug-print", "runtime-tokio-native-tls", "sqlx-mysql" ,"proxy"]}
+sea-orm={ version ="=2.0.0-rc.17", features = [ "debug-print", "runtime-tokio-native-tls", "sqlx-mysql" ,"proxy"]}
 async-trait = {workspace = true}

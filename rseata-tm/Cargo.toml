@@ -12,8 +12,8 @@ license.workspace = true
 
 [dependencies]
 
-rseata-core = { path = "../rseata-core" }
-rseata-proto = { path = "../rseata-proto" }
+rseata-core = { path = "../rseata-core", version = "0.1.1" }
+rseata-proto = { path = "../rseata-proto", version = "0.1.1" }
 
 dotenv = { workspace = true }
 tracing = { workspace = true }

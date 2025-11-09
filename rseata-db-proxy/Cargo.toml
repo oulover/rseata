@@ -18,9 +18,9 @@ sea_orm=[]
 diesel=[]
 
 [dependencies]
-rseata-tm = { path = "../rseata-tm" , version = "0" }
-rseata-rm = { path = "../rseata-rm"  , version = "0"}
-rseata-core = { path = "../rseata-core" , version = "0"}
+rseata-tm = { path = "../rseata-tm" , version = "0.1.1" }
+rseata-rm = { path = "../rseata-rm"  , version = "0.1.1"}
+rseata-core = { path = "../rseata-core" , version = "0.1.1"}
 sqlparser={workspace = true}
 
 serde_json={workspace = true}

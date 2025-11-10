@@ -15,6 +15,7 @@ use std::env;
 use std::fmt::{Debug, Display};
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use tokio::sync::Mutex;
 
 fn get_app_id() -> String {
@@ -37,21 +38,13 @@ impl TransactionTrait for XAConnectionProxy {
         let session = RSEATA_CLIENT_SESSION.try_get().ok();
         if let Some(session) = session {
             let should_begin_global_tx = { !session.is_global_tx_started() };
-            let conn = self
-                .sea_connection
-                .get_mysql_connection_pool()
-                .acquire()
-                .await
-                .map_err(|err| DbErr::Custom(err.to_string()))?;
-
-            let conn = Arc::new(Mutex::new(conn));
 
             let xa_id = if should_begin_global_tx {
                 // 首次
-                self.xa_start(conn.clone(), &None).await?
+                self.xa_start( &None).await?
             } else {
                 // 再次
-                self.xa_start(conn.clone(), &session.get_xid()).await?
+                self.xa_start( &session.get_xid()).await?
             };
             tracing::info!("begin_with_config--{should_begin_global_tx}-{}", xa_id.0);
 
@@ -82,7 +75,7 @@ impl TransactionTrait for XAConnectionProxy {
             session.init_branch().await;
 
             Ok(XATransactionProxy {
-                transaction_type: TransactionType::XA(XAId(uuid::Uuid::new_v4().to_string()), conn),
+                transaction_type: TransactionType::XA(xa_id),
                 xa_connection_proxy: self.clone(),
             })
         } else {
@@ -136,10 +129,26 @@ impl TransactionTrait for XAConnectionProxy {
     }
 }
 
+ 
+
+
 impl XAConnectionProxy {
+     async fn execute_sql(
+         &self,
+        sql: &str,
+    ) -> Result<(), DbErr> {
+        let r =   self.one_connection.lock()
+            .await
+            .execute(sql)
+            .await
+            .map(|_| ())
+            .map_err(|e| DbErr::Custom(e.to_string()));
+        tracing::info!("**************------------------execute_sql executed  {sql}-------{:?}",r); // eab57cf7-1877-4e50-9e2f-fb7cfc76d6c7
+        r
+    }
+
     async fn xa_start(
         &self,
-        conn: Arc<Mutex<PoolConnection<sqlx::MySql>>>,
         xid: &Option<Xid>,
     ) -> Result<XAId, DbErr> {
         let mut xa_id_lock = self.xa_id.write().await;
@@ -171,7 +180,7 @@ impl XAConnectionProxy {
                 if xa_id_lock.is_none() {
                     let xa_id = uuid::Uuid::new_v4().to_string();
                     let sql = format!("XA START '{xa_id}'");
-                    XATransactionProxy::execute_sql(conn, &sql).await?;
+                    self.execute_sql( &sql).await?;
                     *xa_id_lock = Some((XAId(xa_id.clone()), None));
                     Ok(XAId(xa_id))
                 } else {
@@ -185,7 +194,7 @@ impl XAConnectionProxy {
             if xa_id_lock.is_none() {
                 let xa_id = uuid::Uuid::new_v4().to_string();
                 let sql = format!("XA START '{xa_id}'");
-                XATransactionProxy::execute_sql(conn, &sql).await?;
+                self.execute_sql( &sql).await?;
                 *xa_id_lock = Some((XAId(xa_id.clone()), None));
                 Ok(XAId(xa_id))
             } else {
@@ -196,4 +205,122 @@ impl XAConnectionProxy {
             }
         }
     }
+
+    pub async fn xa_end(
+        &self,
+        xa_id: &XAId,
+    ) -> Result<(), DbErr> {
+        if self.is_xa_end.load(Ordering::Acquire) {
+            let xa_id_lock = self.xa_id.read().await;
+            tracing::info!(
+                "xa_end ---- 11 XAConnectionProxy:xa_end------{:?}----{:?}",
+                xa_id,
+                xa_id_lock
+            );
+            if let Some((xa_id_old, _)) = xa_id_lock.as_ref() {
+                if xa_id.eq(xa_id_old) {
+                    tracing::info!(
+                        "xa_end ---- 22 XAConnectionProxy:xa_end------{:?}----{:?}",
+                        xa_id,
+                        xa_id_lock
+                    );
+                    return Ok(());
+                }
+            }
+        }
+
+        let sql = format!("XA END '{}'", xa_id.0);
+        tracing::info!("xa_end ---- 33 XAConnectionProxy:xa_end------{sql}----");
+        self.execute_sql( &sql).await?;
+
+        self.is_xa_end.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+    pub async fn xa_prepare(
+        &self,
+        xa_id: &XAId,
+    ) -> Result<(), DbErr> {
+        if self.is_xa_prepare.load(Ordering::Acquire) {
+            let xa_id_lock = self.xa_id.read().await;
+            tracing::info!(
+                "xa_prepare ---- 11 XAConnectionProxy:xa_prepare------{:?}----{:?}",
+                xa_id,
+                xa_id_lock
+            );
+            if let Some((xa_id_old, _)) = xa_id_lock.as_ref() {
+                if xa_id.eq(xa_id_old) {
+                    tracing::info!(
+                        "xa_prepare ---- 22 XAConnectionProxy:xa_prepare------{:?}----{:?}",
+                        xa_id,
+                        xa_id_lock
+                    );
+                    return Ok(());
+                }
+            }
+        }
+
+        let sql = format!("XA PREPARE '{}'", xa_id.0);
+        self.execute_sql( &sql).await?;
+        tracing::info!("xa_prepare ---- 33 XAConnectionProxy:xa_prepare------{sql}----");
+        self.is_xa_prepare.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+    pub async fn xa_commit(
+        &self,
+        xid: &Xid,
+    ) -> Result<(), DbErr> {
+        let mut xa_id_lock = self.xa_id.write().await;
+        if let Some((xa_id, xid_opt)) = xa_id_lock.as_ref() {
+            if let Some(xid_opt) = xid_opt {
+                if xid.eq(xid_opt) {
+                    let sql = format!("XA COMMIT '{}'", xa_id.0);
+                    self.execute_sql( &sql).await?;
+                    *xa_id_lock = None;
+                    self.is_xa_end.store(false, Ordering::Relaxed);
+                    self.is_xa_prepare.store(false, Ordering::Relaxed);
+                    return Ok(());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn xa_rollback(
+        &self,
+        xid: &Xid,
+    ) -> Result<(), DbErr> {
+        let mut xa_id_lock = self.xa_id.write().await;
+        if let Some((xa_id, xid_opt)) = xa_id_lock.as_ref() {
+            if let Some(xid_opt) = xid_opt {
+                if xid.eq(xid_opt) {
+                    let sql = format!("XA ROLLBACK '{}'", xa_id.0);
+                    self.execute_sql( &sql).await?;
+                    *xa_id_lock = None;
+                    self.is_xa_end.store(false, Ordering::Relaxed);
+                    self.is_xa_prepare.store(false, Ordering::Relaxed);
+                    return Ok(());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn xa_rollback_xa_id(
+        &self,
+        xa_id: &XAId,
+    ) -> Result<(), DbErr> {
+        let mut xa_id_lock = self.xa_id.write().await;
+        if let Some((xa_id_old, _)) = xa_id_lock.as_ref() {
+            if xa_id_old.eq(xa_id) {
+                let sql = format!("XA ROLLBACK '{}'", xa_id.0);
+                self.execute_sql( &sql).await?;
+                *xa_id_lock = None;
+                self.is_xa_end.store(false, Ordering::Relaxed);
+                self.is_xa_prepare.store(false, Ordering::Relaxed);
+                return Ok(());
+            }
+        }
+        Ok(())
+    }
 }
+

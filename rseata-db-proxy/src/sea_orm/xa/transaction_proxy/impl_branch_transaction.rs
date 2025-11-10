@@ -18,8 +18,22 @@ impl BranchTransaction for XATransactionProxy {
         application_data: String,
     ) -> anyhow::Result<BranchStatus> {
         tracing::info!("XA branch_commit ing :{xid},{branch_id}",);
-        self.branch_commit(branch_type, xid, branch_id, resource_id, application_data)
-            .await?;
+
+
+        let xa_r = self.xa_connection_proxy.xa_commit(&xid).await;
+        return match xa_r {
+            Ok(_) => {
+                tracing::info!("XA branch_commit success :{xid},{branch_id}",);
+                let r = {self.xa_connection_proxy.xa_id.read().await.clone()};
+                tracing::info!("XA branch_commit success :{:?}",r);
+                tracing::info!("XA branch_commit success :{:?}",self.xa_connection_proxy.is_xa_end);
+                Ok(BranchStatus::PhaseTwoCommitted)
+            }
+            Err(e) => {
+                tracing::error!("Failed to commit xa:{}", e.to_string());
+                Ok(BranchStatus::PhaseTwoCommitFailedUnretryable)
+            }
+        };
         Ok(BranchStatus::PhaseTwoCommitted)
     }
 
@@ -32,8 +46,21 @@ impl BranchTransaction for XATransactionProxy {
         application_data: String,
     ) -> anyhow::Result<BranchStatus> {
         tracing::info!("XA branch_rollback ing :{xid},{branch_id}",);
-        self.branch_rollback(branch_type, xid, branch_id, resource_id, application_data)
-            .await?;
+        let xa_r = self.xa_connection_proxy.xa_rollback(&xid).await;
+        return match xa_r {
+            Ok(_) => {
+                tracing::info!("XA branch_rollback success :{xid},{branch_id}",);
+                Ok(BranchStatus::PhaseTwoRollbacked)
+            }
+            Err(e) => {
+                tracing::error!("Failed to rollback xa:{}", e.to_string());
+
+                let r = {self.xa_connection_proxy.xa_id.read().await.clone()};
+                tracing::info!("XA branch_commit success :{:?}",r);
+                tracing::info!("XA branch_commit success :{:?}",self.xa_connection_proxy.is_xa_end);
+                Ok(BranchStatus::PhaseTwoRollbackFailedUnretryable)
+            },
+        };
         Ok(BranchStatus::PhaseTwoCommitted)
     }
 }

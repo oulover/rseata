@@ -8,6 +8,7 @@ impl ConnectionTrait for XATransactionProxy {
     }
 
     async fn execute_raw(&self, stmt: Statement) -> Result<ExecResult, DbErr> {
+
         self.xa_connection_proxy.execute_raw(stmt).await
     }
     async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult, DbErr> {

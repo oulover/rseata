@@ -1,6 +1,7 @@
+use ::sea_orm::DbErr;
 
-mod demo;
 pub mod table_primary_select;
 pub mod sea_orm;
-mod diesel;
+pub mod diesel;
+
 

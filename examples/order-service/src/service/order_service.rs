@@ -36,20 +36,20 @@ pub async fn add_order_then_add_user(app_ctx: Arc<AppContext>) -> anyhow::Result
                     order::order::Entity::insert(new_order).exec(txn).await?;
                 }
 
-                let user = app_ctx
-                    .user_client
-                    .get()
-                    .await
-                    .map_err(|e| DbErr::Custom(e.to_string()))?
-                    .user
-                    .add_user(AddUserRequest {
-                        name: "".to_string(),
-                        age: None,
-                        sex: None,
-                    })
-                    .await
-                    .map_err(|e| DbErr::Custom(e.to_string()))?;
-                print!("user_client add  user {:?}", user);
+                // let user = app_ctx
+                //     .user_client
+                //     .get()
+                //     .await
+                //     .map_err(|e| DbErr::Custom(e.to_string()))?
+                //     .user
+                //     .add_user(AddUserRequest {
+                //         name: "".to_string(),
+                //         age: None,
+                //         sex: None,
+                //     })
+                //     .await
+                //     .map_err(|e| DbErr::Custom(e.to_string()))?;
+                // print!("user_client add  user {:?}", user);
                 Ok::<_, DbErr>(())
             })
         })

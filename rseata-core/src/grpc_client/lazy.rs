@@ -26,7 +26,6 @@ where
     I: Interceptor + Clone,
 {
     pub fn new(context: T::Context) -> Self {
-        println!("---------------LazyStateInit");
         LazyState {
             inner: Arc::new(Inner {
                 context,

@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 
 pub mod branch_manager_inbound;
 pub mod branch_manager_outbound;
+pub mod branch_transaction;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct BranchId(pub u64);
@@ -31,6 +32,7 @@ pub enum BranchType {
     SAGA = 3,
     XA = 4,
 }
+
 impl From<i32> for BranchType {
     fn from(value: i32) -> Self {
         match value {
@@ -64,6 +66,7 @@ pub enum BranchStatus {
     PhaseTwoTimeout = 11,
     Unknown = 12,
 }
+
 impl From<i32> for BranchStatus {
     fn from(value: i32) -> Self {
         match value {

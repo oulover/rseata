@@ -4,6 +4,7 @@ use crate::handle_branch_type::HandleBranchType;
 use crate::resource::resource_registry::ResourceRegistry;
 use crate::types::{GlobalStatus, ResourceId, Xid};
 use tonic::async_trait;
+use crate::branch::branch_transaction::BranchTransactionRegistry;
 
 #[async_trait]
 pub trait GlobalStatusQuery {
@@ -17,6 +18,7 @@ pub trait ResourceManager:
     + GlobalStatusQuery
     + BranchManagerInbound
     + BranchManagerOutbound
+    + BranchTransactionRegistry
 {
     async fn get_managed_resources(&self) -> Vec<Self::Resource>;
     async fn find_resource(&self, resource_id: &ResourceId) -> Option<Self::Resource>;

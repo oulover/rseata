@@ -8,8 +8,12 @@ use sea_orm::{
     AccessMode, DbErr, IsolationLevel, RuntimeErr, TransactionError, TransactionSession,
     TransactionTrait,
 };
+use std::env;
 use std::fmt::{Debug, Display};
 use std::pin::Pin;
+fn get_app_id() -> String {
+    env::var("APP_ID").expect("APP_ID not set")
+}
 
 #[async_trait::async_trait]
 impl TransactionTrait for XAConnectionProxy {
@@ -24,16 +28,23 @@ impl TransactionTrait for XAConnectionProxy {
         isolation_level: Option<IsolationLevel>,
         access_mode: Option<AccessMode>,
     ) -> Result<Self::Transaction, DbErr> {
-        let session = RSEATA_CLIENT_SESSION.try_with(|o| o.clone()).ok();
+        let session = RSEATA_CLIENT_SESSION.try_get().ok();
         if let Some(session) = session {
-            let xa_id = uuid::Uuid::new_v4().to_string();
-            self.xa_start(&xa_id).await?;
             let should_begin_global_tx = { !session.is_global_tx_started() };
+
+            let xa_id = if should_begin_global_tx {
+                // 首次
+                self.xa_start(&None).await?
+            } else {
+                // 再次
+                self.xa_start(&session.get_xid()).await?
+            };
+
             if should_begin_global_tx {
                 let xid = RSEATA_TM
                     .begin(
-                        "".to_string(),
-                        "".to_string(),
+                        RSEATA_TM.application_id.to_string(),
+                        RSEATA_TM.transaction_service_group.to_string(),
                         session.transaction_name.clone(),
                         100,
                     )
@@ -42,8 +53,14 @@ impl TransactionTrait for XAConnectionProxy {
 
                 {
                     session
-                        .begin_global_transaction(xid)
+                        .begin_global_transaction(xid.clone())
                         .map_err(|e| DbErr::Custom(e.to_string()))?;
+                }
+                {
+                    let mut xa_id_lock = self.xa_id.write().await;
+                    if let Some((xa_id, _)) = xa_id_lock.take() {
+                        *xa_id_lock = Some((xa_id, Some(xid)));
+                    }
                 }
             }
 

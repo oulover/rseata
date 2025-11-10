@@ -1,5 +1,5 @@
-use rseata::db_proxy::sea_orm::ATConnectionProxy;
+use rseata::db_proxy::sea_orm::XAConnectionProxy;
 #[derive(Debug)]
 pub struct AppContext {
-    pub db_conn:ATConnectionProxy,
+    pub db_conn:XAConnectionProxy,
 }

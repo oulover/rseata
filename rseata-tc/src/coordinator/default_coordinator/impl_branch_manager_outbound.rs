@@ -15,6 +15,7 @@ impl BranchManagerOutbound for DefaultCoordinator {
         application_data: String,
         lock_keys: String,
     ) -> anyhow::Result<BranchId> {
+        tracing::info!("Branch register :{branch_type:?}, {resource_id}, {client_id}, {xid}, {application_data}");
         self.core
             .branch_register(
                 branch_type,
@@ -32,11 +33,12 @@ impl BranchManagerOutbound for DefaultCoordinator {
         branch_type: BranchType,
         xid: Xid,
         branch_id: BranchId,
-        status: BranchStatus,
+        branch_status: BranchStatus,
         application_data: String,
     ) -> anyhow::Result<()> {
+        tracing::info!("Branch report :{branch_type:?}, {xid}, {branch_id}, {branch_status:?}");
         self.core
-            .branch_report(branch_type, xid, branch_id, status, application_data)
+            .branch_report(branch_type, xid, branch_id, branch_status, application_data)
             .await
     }
 
@@ -47,6 +49,7 @@ impl BranchManagerOutbound for DefaultCoordinator {
         xid: Xid,
         lock_keys: String,
     ) -> anyhow::Result<bool> {
+        tracing::info!("Lock query :{branch_type:?}, {resource_id}, {xid}, {lock_keys}");
         self.core
             .lock_query(branch_type, resource_id, xid, lock_keys)
             .await

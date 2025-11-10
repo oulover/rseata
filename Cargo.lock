@@ -2171,6 +2171,7 @@ dependencies = [
 name = "rseata-db-proxy"
 version = "0.1.1"
 dependencies = [
+ "anyhow",
  "async-trait",
  "rseata-core",
  "rseata-rm",
@@ -2178,6 +2179,7 @@ dependencies = [
  "sea-orm",
  "serde_json",
  "sqlparser",
+ "tokio",
  "tracing",
 ]
 
@@ -2230,6 +2232,7 @@ dependencies = [
  "async-trait",
  "axum",
  "dotenv",
+ "futures",
  "log",
  "opentelemetry",
  "opentelemetry-otlp",

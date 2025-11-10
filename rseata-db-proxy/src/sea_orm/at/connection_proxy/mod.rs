@@ -1,6 +1,7 @@
 mod impl_connection_trait;
 mod impl_stream_trait;
 mod impl_transaction_trait;
+mod impl_branch_transaction;
 
 use sea_orm::error::*;
 use std::fmt::Debug;

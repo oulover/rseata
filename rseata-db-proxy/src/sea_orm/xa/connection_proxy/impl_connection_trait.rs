@@ -16,7 +16,7 @@ impl ConnectionTrait for XAConnectionProxy {
 
     #[allow(unused_variables)]
     async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult, DbErr> {
-        println!("------execute_unprepared----------------------");
+        tracing::info!("-------------execute_unprepared:{sql}",);
         self.sea_connection.execute_unprepared(sql).await
     }
 

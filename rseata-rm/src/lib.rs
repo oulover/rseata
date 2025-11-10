@@ -6,14 +6,12 @@ mod config;
 pub mod resource;
 
 lazy_static! {
-    pub static ref RSEATA_RM: DefaultResourceManager = DefaultResourceManager::new(ResourceInfo::new(
-        String::from("resource_group_id--2"),
-        BranchType::AT
-    ));
+    pub static ref RSEATA_RM: DefaultResourceManager =
+        DefaultResourceManager::new(ResourceInfo::new_with_env(BranchType::AT));
 }
 
 pub async fn init() {
     tracing::info!("RSEATA_RM init....");
     RSEATA_RM.init().await;
-    println!("RSEATA_RM init ended!");
+    tracing::info!("RSEATA_RM init end");
 }

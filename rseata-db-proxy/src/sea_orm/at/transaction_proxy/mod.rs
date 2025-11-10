@@ -13,6 +13,7 @@ use rseata_rm::RSEATA_RM;
 use sea_orm::sqlx::{Column, Row, TypeInfo};
 use sea_orm::{ConnectionTrait, DbErr, Statement};
 use std::collections::HashMap;
+use rseata_core::branch::branch_transaction::BranchTransactionRegistry;
 
 pub struct ATTransactionProxy {
     at_connection_proxy: ATConnectionProxy,
@@ -58,13 +59,14 @@ impl ATTransactionProxy {
             if let Some(xid) = xid_guard {
                 let lock_keys = session.get_branch_luck_keys().await.unwrap_or_default();
                 let branch_id = RSEATA_RM
-                    .branch_register(
+                    .branch_transaction_registry(
                         RSEATA_RM.resource_info.get_branch_type().await,
                         RSEATA_RM.resource_info.get_resource_id().await,
                         RSEATA_RM.resource_info.get_client_id().await,
                         xid,
                         "application_data".into(),
                         lock_keys,
+                        Box::new(self.at_connection_proxy.clone()),
                     )
                     .await
                     .map_err(|e| DbErr::Custom(e.to_string()))?;

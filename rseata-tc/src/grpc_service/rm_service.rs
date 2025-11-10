@@ -41,7 +41,7 @@ impl ResourceManagerService for TCGrpcService {
                 let response_tx_cloned = response_tx.clone();
                 match incoming_stream.message().await {
                     Ok(Some(resource_msg)) => {
-                        tracing::debug!("--------A---resource_msg: {:?}", resource_msg); 
+                        tracing::debug!("Resource message: {:?}", resource_msg); 
                         let resource_info = DefaultResource {
                             group_id: resource_msg.resource_group_id.clone(),
                             resource_id: resource_msg.resource_id.clone().into(),
@@ -119,9 +119,9 @@ impl ResourceManagerService for TCGrpcService {
     async fn branch_register(
         &self,
         request: Request<BranchRegisterRequest>,
-    ) -> std::result::Result<Response<BranchRegisterResponse>, Status> {
-        tracing::debug!("branch_register----{:?}", request);
+    ) -> std::result::Result<Response<BranchRegisterResponse>, Status> { 
         let request = request.into_inner();
+        tracing::info!("Branch register----{:?}", request);
         let branch_id = self
             .coordinator
             .branch_register(
@@ -146,6 +146,7 @@ impl ResourceManagerService for TCGrpcService {
         request: Request<BranchReportRequest>,
     ) -> std::result::Result<Response<BranchReportResponse>, Status> {
         let request = request.into_inner();
+        tracing::info!("Branch report----{:?}", request);
         self.coordinator
             .branch_report(
                 request.branch_type.into(),
@@ -164,7 +165,7 @@ impl ResourceManagerService for TCGrpcService {
         request: Request<LockQueryRequest>,
     ) -> std::result::Result<Response<LockQueryResponse>, Status> {
         let request = request.into_inner();
-        tracing::debug!("lock_query----{:?}", request);
+        tracing::info!("Lock query----{:?}", request);
 
         let lucked = self
             .coordinator

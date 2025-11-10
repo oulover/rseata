@@ -36,8 +36,7 @@ pub mod db_proxy {
 }
 
 pub async fn init() {
-    use rseata_rm::RSEATA_RM;
 
     #[cfg(feature = "rm")]
-    RSEATA_RM.init().await;
+    rseata_rm::init().await;
 }

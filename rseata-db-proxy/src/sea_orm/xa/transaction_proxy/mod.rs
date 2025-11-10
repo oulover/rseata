@@ -3,43 +3,23 @@ mod impl_stream_trait;
 mod impl_transaction_session;
 mod impl_transaction_trait;
 
-use crate::sea_orm::xa::connection_proxy::XAConnectionProxy;
+use crate::sea_orm::xa::connection_proxy::{XAId, XAConnectionProxy};
 use rseata_core::RSEATA_CLIENT_SESSION;
 use rseata_core::branch::BranchType;
 use rseata_core::branch::branch_manager_outbound::BranchManagerOutbound;
+use rseata_core::branch::branch_transaction::BranchTransactionRegistry;
 use rseata_core::resource::Resource;
 use rseata_rm::RSEATA_RM;
 use sea_orm::{ConnectionTrait, DatabaseTransaction, DbErr};
 
 pub enum TransactionType {
     Local(DatabaseTransaction),
-    XA(String),
+    XA(XAId),
 }
 
 pub struct XATransactionProxy {
     pub transaction_type: TransactionType,
     pub xa_connection_proxy: XAConnectionProxy,
-}
-
-impl XATransactionProxy {
-    // xa start in connection
-    async fn xa_end(&self, xa_id: &str) -> Result<sea_orm::ExecResult, DbErr> {
-        let sql = format!("XA END '{xa_id}'");
-        self.execute_unprepared(&sql).await
-    }
-    async fn xa_prepare(&self, xa_id: &str) -> Result<sea_orm::ExecResult, DbErr> {
-        let sql = format!("XA PREPARE '{xa_id}'");
-        self.execute_unprepared(&sql).await
-    }
-    async fn xa_commit(&self, xa_id: &str) -> Result<sea_orm::ExecResult, DbErr> {
-        let sql = format!("XA COMMIT '{xa_id}'");
-        self.execute_unprepared(&sql).await
-    }
-
-    async fn xa_rollback(&self, xa_id: &str) -> Result<sea_orm::ExecResult, DbErr> {
-        let sql = format!("XA ROLLBACK '{xa_id}'");
-        self.execute_unprepared(&sql).await
-    }
 }
 
 impl std::fmt::Debug for XATransactionProxy {
@@ -49,7 +29,7 @@ impl std::fmt::Debug for XATransactionProxy {
 }
 
 impl XATransactionProxy {
-    pub async fn branch_register(&self) -> Result<(), DbErr> {
+    pub async fn branch_register(&self, xa_id: &XAId) -> Result<(), DbErr> {
         let session = RSEATA_CLIENT_SESSION.try_get().ok();
         println!(
             "TransactionSession------branch_register----------------------{:?}",
@@ -62,13 +42,14 @@ impl XATransactionProxy {
             if let Some(xid) = xid_guard {
                 let lock_keys = session.get_branch_luck_keys().await.unwrap_or_default();
                 let branch_id = RSEATA_RM
-                    .branch_register(
+                    .branch_transaction_registry(
                         RSEATA_RM.resource_info.get_branch_type().await,
                         RSEATA_RM.resource_info.get_resource_id().await,
                         RSEATA_RM.resource_info.get_client_id().await,
                         xid,
                         "application_data".into(),
                         lock_keys,
+                        Box::new(self.xa_connection_proxy.clone()),
                     )
                     .await
                     .map_err(|e| DbErr::Custom(e.to_string()))?;
@@ -80,8 +61,8 @@ impl XATransactionProxy {
     }
 
     pub async fn global_commit(
-        local_commit_result: Result<sea_orm::ExecResult, DbErr>,
-    ) -> Result<sea_orm::ExecResult, DbErr> {
+        local_commit_result: Result<(), DbErr>,
+    ) -> Result<(), DbErr> {
         let session = RSEATA_CLIENT_SESSION.try_get().ok();
         println!("TransactionSession------commit----------------------");
         if let Some(session) = session {
@@ -104,7 +85,7 @@ impl XATransactionProxy {
                 }
             }
         }
-        local_commit_result
+        local_commit_result.map(|_|())
     }
 
     pub async fn global_rollback() -> Result<(), DbErr> {

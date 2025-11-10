@@ -19,7 +19,7 @@ pub trait BranchManagerOutbound {
         branch_type: BranchType,
         xid: Xid,
         branch_id: BranchId,
-        status: BranchStatus,
+        branch_status: BranchStatus,
         application_data: String,
     ) -> anyhow::Result<()>;
 

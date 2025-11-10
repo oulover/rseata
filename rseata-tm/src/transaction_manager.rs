@@ -8,6 +8,7 @@ use rseata_proto::rseata_proto::proto::{
     GlobalBeginRequest, GlobalCommitRequest, GlobalReportRequest, GlobalRollbackRequest,
 };
 use std::env;
+use std::sync::Arc;
 
 pub fn get_tc_grpc_server_addr() -> String {
     let ip = env::var("RSEATA_TC_GRPC_IP").unwrap_or("127.0.0.1".to_string());
@@ -20,8 +21,24 @@ lazy_static! {
         endpoint: get_tc_grpc_server_addr()
     });
 }
+#[derive(Clone, Debug)]
+pub struct RseataTM {
+    pub application_id: Arc<String>,
+    pub transaction_service_group: Arc<String>,
+}
+impl RseataTM {
+    pub fn new_with_env() -> Self {
+        let app =
+            env::var("RSEATA_TM_APPLICATION_ID").expect("env RSEATA_TM_APPLICATION_ID not set");
+        let group = env::var("RSEATA_TM_TRANSACTION_SERVICE_GROUP")
+            .unwrap_or("RSEATA_TM_TRANSACTION_SERVICE_GROUP".to_owned());
+        Self {
+            application_id: Arc::new(app),
+            transaction_service_group: Arc::new(group),
+        }
+    }
+}
 
-pub struct RseataTM;
 #[async_trait]
 impl TransactionManager for RseataTM {
     async fn begin(
@@ -29,17 +46,17 @@ impl TransactionManager for RseataTM {
         application_id: String,
         transaction_service_group: String,
         name: String,
-        timeout: u64,
+        timeout_millis: u64,
     ) -> anyhow::Result<Xid> {
         let r = TM_GRPC_CLIENT
             .get()
             .await?
             .tc
             .global_begin(GlobalBeginRequest {
-                application_id: "".to_string(),
-                transaction_service_group: "".to_string(),
+                application_id,
+                transaction_service_group,
                 transaction_name: name,
-                timeout_millis: timeout,
+                timeout_millis,
                 extra_data: None,
             })
             .await?;
@@ -48,7 +65,7 @@ impl TransactionManager for RseataTM {
     }
 
     async fn commit(&self, xid: Xid) -> anyhow::Result<GlobalStatus> {
-        println!("global_commit {}", xid);
+        tracing::info!("TM commit {}", xid);
         TM_GRPC_CLIENT
             .get()
             .await?

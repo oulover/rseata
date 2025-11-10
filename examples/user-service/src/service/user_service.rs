@@ -1,9 +1,7 @@
 use crate::context::AppContext;
 use crate::user;
-use rseata::{ RSEATA_CLIENT_SESSION};
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, DbErr, EntityTrait, TransactionTrait,
-};
+use rseata::RSEATA_CLIENT_SESSION;
+use sea_orm::{ActiveModelTrait, ActiveValue, DbErr, EntityTrait, TransactionTrait};
 use std::sync::Arc;
 
 pub async fn get_user(
@@ -23,6 +21,27 @@ pub async fn add_user(
     app_ctx: Arc<AppContext>,
     add_user: user::user::Model,
 ) -> anyhow::Result<user::user::Model> {
+
+    // transaction one
+    app_ctx
+        .db_conn
+        .transaction::<_, (), DbErr>(|txn| {
+            Box::pin(async move {
+                let add = user::user::ActiveModel {
+                    id: ActiveValue::set(uuid::Uuid::new_v4().as_u128() as i64),
+                    name: ActiveValue::set(uuid::Uuid::new_v4().to_string()),
+                    age: ActiveValue::set(add_user.age),
+                    sex: ActiveValue::set(add_user.sex),
+                }
+                .insert(txn)
+                .await?;
+
+                Ok::<_, DbErr>(())
+            })
+        })
+        .await?;
+
+    // transaction tow
     app_ctx
         .db_conn
         .transaction::<_, anyhow::Result<user::user::Model>, DbErr>(|txn| {

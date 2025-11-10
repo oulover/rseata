@@ -13,6 +13,7 @@ impl ResourceRegistry for DefaultCoordinator {
     type Resource = TCResource;
 
     async fn register_resource(&self, resource: &Self::Resource) {
+        tracing::info!("Registering resource {:?}", resource.resource);
         self.event_publisher
             .publish(TransactionEvent {
                 event_id: Uuid::new_v4().to_string(),

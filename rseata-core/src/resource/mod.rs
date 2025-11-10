@@ -12,7 +12,7 @@ pub trait Resource {
     async fn get_branch_type(&self) -> BranchType;
     async fn get_client_id(&self) -> ClientId;
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DefaultResource {
     pub group_id: String,
     pub resource_id: ResourceId,

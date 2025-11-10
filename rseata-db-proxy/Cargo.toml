@@ -14,16 +14,17 @@ license.workspace = true
 default = ["mysql"]
 mysql = []
 postgres = []
-sea_orm=[]
-diesel=[]
+sea_orm = []
+diesel = []
 
 [dependencies]
-rseata-tm = { path = "../rseata-tm" , version = "0.1.1" }
-rseata-rm = { path = "../rseata-rm"  , version = "0.1.1"}
-rseata-core = { path = "../rseata-core" , version = "0.1.1"}
-sqlparser={workspace = true}
+rseata-tm = { path = "../rseata-tm", version = "0.1.1" }
+rseata-rm = { path = "../rseata-rm", version = "0.1.1" }
+rseata-core = { path = "../rseata-core", version = "0.1.1" }
+tracing = { workspace = true }
+sqlparser = { workspace = true }
 
-serde_json={workspace = true}
+serde_json = { workspace = true }
 
-sea-orm={workspace = true , features = [ "debug-print", "runtime-tokio-native-tls", "sqlx-mysql" ]}
-async-trait = {workspace = true}
+sea-orm = { workspace = true, features = ["debug-print", "runtime-tokio-native-tls", "sqlx-mysql"] }
+async-trait = { workspace = true }

@@ -57,10 +57,8 @@ impl TransactionTrait for ATConnectionProxy {
                                     .map_err(|e| DbErr::Custom(e.to_string()))?;
                             }
                         }
+                        session.init_branch().await;
 
-                        if session.is_global_tx_started() {
-                            session.init_branch().await;
-                        }
                     }
                 }
                 Ok(ATTransactionProxy::new(self.clone(), t))

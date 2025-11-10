@@ -66,22 +66,26 @@ impl ClientSession {
     }
 
     pub async fn init_branch(&self) {
-        println!("Initializing branch---------Initializing--------------------");
-        {
-            let mut luck = self.branch_undo_logs.write().await;
-            luck.clear();
-            self.branch_id.store(0, Ordering::Release);
-        }
+        if self.is_global_tx_started() {
+            {
+                let mut luck = self.branch_undo_logs.write().await;
+                luck.clear();
+                self.branch_id.store(0, Ordering::Release);
+            }
 
-        {
-            let mut branch_luck_keys = self.branch_luck_keys.write().await;
-            *branch_luck_keys = None;
+            {
+                let mut branch_luck_keys = self.branch_luck_keys.write().await;
+                *branch_luck_keys = None;
+            }
         }
     }
 
     pub async fn set_branch_luck_keys(&self, branch_luck_keys: String) {
-        let mut luck = self.branch_luck_keys.write().await;
-        *luck = Some(branch_luck_keys);
+        let branch_luck_keys = branch_luck_keys.trim();
+        if !branch_luck_keys.is_empty() {
+            let mut luck = self.branch_luck_keys.write().await;
+            *luck = Some(branch_luck_keys.to_string());
+        }
     }
 
     pub async fn get_branch_luck_keys(&self) -> Option<String> {

@@ -1,15 +1,15 @@
 use crate::sea_orm::xa::connection_proxy::XAConnectionProxy;
+use crate::sea_orm::xa::transaction_proxy::{TransactionType, XATransactionProxy};
 use rseata_core::RSEATA_CLIENT_SESSION;
 use rseata_core::transaction::transaction_manager::TransactionManager;
 use rseata_tm::RSEATA_TM;
+use sea_orm::sqlx::types::uuid;
 use sea_orm::{
     AccessMode, DbErr, IsolationLevel, RuntimeErr, TransactionError, TransactionSession,
     TransactionTrait,
 };
 use std::fmt::{Debug, Display};
 use std::pin::Pin;
-use sea_orm::sqlx::types::uuid;
-use crate::sea_orm::xa::transaction_proxy::{TransactionType, XATransactionProxy};
 
 #[async_trait::async_trait]
 impl TransactionTrait for XAConnectionProxy {
@@ -47,9 +47,8 @@ impl TransactionTrait for XAConnectionProxy {
                 }
             }
 
-            if session.is_global_tx_started() {
-                session.init_branch().await;
-            }
+            session.init_branch().await;
+
             Ok(XATransactionProxy {
                 transaction_type: TransactionType::XA(xa_id),
                 xa_connection_proxy: self.clone(),

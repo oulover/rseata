@@ -67,13 +67,14 @@ fn get_tc_grpc_server_addr() -> String {
 }
 
 #[derive(Clone)]
-pub struct ResourceService {
+pub struct DefaultResourceManager {
     rm_client: LazyRMGrpcClient,
     resources: Arc<RwLock<HashMap<ResourceId, Box<ResourceInfo>>>>,
     channel: Arc<RwLock<Option<(Sender<ResourceProto>, Receiver<ResourceInstruction>)>>>,
+    
     pub resource_info: ResourceInfo,
 }
-impl ResourceService {
+impl DefaultResourceManager {
     pub fn new(resource_info: ResourceInfo) -> Self {
         Self {
             rm_client: LazyRMGrpcClient::new(GrpcContext {
@@ -89,7 +90,7 @@ impl ResourceService {
     }
 }
 #[async_trait]
-impl ResourceManager for ResourceService {
+impl ResourceManager for DefaultResourceManager {
     async fn get_managed_resources(&self) -> Vec<Self::Resource> {
         todo!()
     }
@@ -99,21 +100,21 @@ impl ResourceManager for ResourceService {
     }
 }
 
-impl HandleBranchType for ResourceService {
+impl HandleBranchType for DefaultResourceManager {
     fn handle_branch_type(&self) -> BranchType {
         todo!()
     }
 }
 
 #[async_trait]
-impl GlobalStatusQuery for ResourceService {
+impl GlobalStatusQuery for DefaultResourceManager {
     async fn get_global_status(&self, xid: Xid) -> anyhow::Result<GlobalStatus> {
         todo!()
     }
 }
 
 #[async_trait]
-impl ResourceRegistry for ResourceService {
+impl ResourceRegistry for DefaultResourceManager {
     type Resource = ResourceInfo;
 
     async fn register_resource(&self, resource: &Self::Resource) {
@@ -207,7 +208,7 @@ impl ResourceRegistry for ResourceService {
     async fn unregister_resource(&mut self, resource: &Self::Resource) {}
 }
 #[async_trait]
-impl BranchManagerOutbound for ResourceService {
+impl BranchManagerOutbound for DefaultResourceManager {
     async fn branch_register(
         &self,
         branch_type: BranchType,
@@ -282,7 +283,7 @@ impl BranchManagerOutbound for ResourceService {
     }
 }
 #[async_trait]
-impl BranchManagerInbound for ResourceService {
+impl BranchManagerInbound for DefaultResourceManager {
     async fn branch_commit(
         &self,
         branch_type: BranchType,

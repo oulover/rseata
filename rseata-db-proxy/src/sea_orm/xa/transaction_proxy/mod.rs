@@ -4,10 +4,10 @@ mod impl_transaction_session;
 mod impl_transaction_trait;
 
 use crate::sea_orm::xa::connection_proxy::XAConnectionProxy;
-use rseata_core::branch::branch_manager_outbound::BranchManagerOutbound;
-use rseata_core::branch::BranchType;
-use rseata_core::resource::Resource;
 use rseata_core::RSEATA_CLIENT_SESSION;
+use rseata_core::branch::BranchType;
+use rseata_core::branch::branch_manager_outbound::BranchManagerOutbound;
+use rseata_core::resource::Resource;
 use rseata_rm::RSEATA_RM;
 use sea_orm::{ConnectionTrait, DatabaseTransaction, DbErr};
 
@@ -133,23 +133,24 @@ impl XATransactionProxy {
         Ok(())
     }
 
-    pub async fn check_luck(&self) -> Result<bool, DbErr> {
+    pub async fn check_lock(&self) -> Result<bool, DbErr> {
         let session = RSEATA_CLIENT_SESSION.try_get().ok();
         if let Some(session) = &session {
             let xid_guard = session.get_xid();
             if let Some(xid) = xid_guard {
-                let lock_keys = session.get_branch_luck_keys().await.unwrap_or_default();
-                let locked = RSEATA_RM
-                    .lock_query(
-                        RSEATA_RM.resource_info.get_branch_type().await,
-                        RSEATA_RM.resource_info.get_resource_id().await,
-                        xid,
-                        lock_keys,
-                    )
-                    .await
-                    .map_err(|e| DbErr::Custom(e.to_string()))?;
-                println!("------------check_luck---完成{}", locked);
-                return Ok(locked);
+                let lock_keys = session.get_branch_luck_keys().await;
+                if let Some(lock_keys) = lock_keys {
+                    let locked = RSEATA_RM
+                        .lock_query(
+                            RSEATA_RM.resource_info.get_branch_type().await,
+                            RSEATA_RM.resource_info.get_resource_id().await,
+                            xid,
+                            lock_keys,
+                        )
+                        .await
+                        .map_err(|e| DbErr::Custom(e.to_string()))?;
+                    return Ok(locked);
+                }
             }
         }
         Ok(true)

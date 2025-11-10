@@ -2178,6 +2178,7 @@ dependencies = [
  "sea-orm",
  "serde_json",
  "sqlparser",
+ "tracing",
 ]
 
 [[package]]

@@ -82,7 +82,7 @@ pub struct DefaultResourceManager {
     resources: Arc<RwLock<HashMap<ResourceId, Box<ResourceInfo>>>>,
     channel: Arc<RwLock<Option<(Sender<ResourceProto>, Receiver<ResourceInstruction>)>>>,
     pub resource_info: ResourceInfo,
-    pub branch_transactions :Arc<RwLock<HashMap<BranchId, Box<dyn BranchTransaction>>>>,
+    pub branch_transactions: Arc<RwLock<HashMap<BranchId, Box<dyn BranchTransaction + Send + Sync + 'static>>>>,
 }
 impl DefaultResourceManager {
     pub fn new(resource_info: ResourceInfo) -> Self {

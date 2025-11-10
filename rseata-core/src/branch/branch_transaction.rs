@@ -1,10 +1,28 @@
 use crate::branch::branch_manager_inbound::BranchManagerInbound;
-use crate::branch::{BranchId, BranchType};
+use crate::branch::{BranchId, BranchStatus, BranchType};
 use crate::types::{ClientId, ResourceId, Xid};
 use async_trait::async_trait;
 
 #[async_trait]
-pub trait BranchTransaction: BranchManagerInbound + Send + Sync {}
+pub trait BranchTransaction: Send + Sync + 'static {
+    async fn branch_commit(
+        &self,
+        branch_type: BranchType,
+        xid: Xid,
+        branch_id: BranchId,
+        resource_id: ResourceId,
+        application_data: String,
+    ) -> anyhow::Result<BranchStatus>;
+
+    async fn branch_rollback(
+        &self,
+        branch_type: BranchType,
+        xid: Xid,
+        branch_id: BranchId,
+        resource_id: ResourceId,
+        application_data: String,
+    ) -> anyhow::Result<BranchStatus>;
+}
 
 #[async_trait]
 pub trait BranchTransactionRegistry {

@@ -30,3 +30,4 @@ serde_json = { workspace = true }
 
 sea-orm = { workspace = true, features = ["debug-print", "runtime-tokio-native-tls", "sqlx-mysql"] }
 async-trait = { workspace = true }
+uuid = { version = "1.18.1", features = ["v4"] }

@@ -6,7 +6,7 @@ use rseata_core::branch::{BranchId, BranchStatus, BranchType};
 use rseata_core::types::{ResourceId, Xid};
 
 #[async_trait]
-impl BranchManagerInbound for ATConnectionProxy {
+impl BranchTransaction for ATConnectionProxy {
     async fn branch_commit(
         &self,
         branch_type: BranchType,
@@ -29,9 +29,6 @@ impl BranchManagerInbound for ATConnectionProxy {
     ) -> anyhow::Result<BranchStatus> {
         tracing::info!("PhaseTwoRollbacked branch_rollback");
 
-
         Ok(BranchStatus::PhaseTwoRollbacked)
     }
 }
-
-impl BranchTransaction for ATConnectionProxy {}

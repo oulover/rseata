@@ -2181,6 +2181,7 @@ dependencies = [
  "sqlparser",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

@@ -74,8 +74,35 @@ rseata = { version = "0", features = ["full"] }
 use rseata::global_transaction;
 
 #[global_transaction("your_transaction_name")]
-pub async fn your_transaction_function(...) -> Result<()> {
-    // 你的代码
+pub async fn add_order_then_add_user(app_ctx: Arc<AppContext>) -> anyhow::Result<()> {
+    let db = app_ctx.db_conn.clone();
+    db.transaction::<_, (), DbErr>(|txn| {
+            Box::pin(async move {
+                
+                // local transaction
+                order::order::Entity::insert(new_order).exec(txn).await?;
+ 
+                // grpc 
+                let user = app_ctx
+                    .user_client
+                    .get()
+                    .await
+                    .map_err(|e| DbErr::Custom(e.to_string()))?
+                    .user
+                    .add_user(AddUserRequest {
+                        name: "".to_string(),
+                        age: None,
+                        sex: None,
+                    })
+                    .await
+                    .map_err(|e| DbErr::Custom(e.to_string()))?;
+                
+                Ok::<_, DbErr>(())
+            })
+        })
+        .await?;
+
+    Ok(())
 }
 ```
 
@@ -94,6 +121,10 @@ async fn main() -> anyhow::Result<()> {
  
    Ok(())
 }
+```
+**在gRPC Client中，使用提供的拦截器（RseataInterceptor）来传播事务上下文。**
+```rust
+let grpc_client = UserServiceClient::with_interceptor(channel, RseataInterceptor);
 ```
 **在gRPC服务中，使用提供的拦截器（SeataMiddlewareLayer）来传播事务上下文。**
 ```rust

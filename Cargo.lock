@@ -2177,6 +2177,7 @@ dependencies = [
  "rseata-rm",
  "rseata-tm",
  "sea-orm",
+ "sea-query-sqlx",
  "serde_json",
  "sqlparser",
  "tokio",

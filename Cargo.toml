@@ -72,6 +72,7 @@ walkdir = "2"
 lazy_static = "1"
 
 sea-orm = { version = "2.0.0-rc.17"}
+sea-query-sqlx = "0.8.0-rc.9"
 sqlparser = "0"
 
 serde = { version = "1.0.228" }

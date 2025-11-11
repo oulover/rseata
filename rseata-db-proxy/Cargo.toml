@@ -21,6 +21,7 @@ diesel = []
 rseata-tm = { path = "../rseata-tm", version = "0.1.1" }
 rseata-rm = { path = "../rseata-rm", version = "0.1.1" }
 rseata-core = { path = "../rseata-core", version = "0.1.1" }
+sea-query-sqlx = {workspace = true}
 
 tokio = {workspace = true}
 anyhow = { workspace = true }

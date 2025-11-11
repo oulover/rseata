@@ -23,25 +23,25 @@ pub async fn add_user(
 ) -> anyhow::Result<user::user::Model> {
 
     // transaction one
-    app_ctx
-        .db_conn
-        .transaction::<_, (), DbErr>(|txn| {
-            Box::pin(async move {
-                let add = user::user::ActiveModel {
-                    id: ActiveValue::set(uuid::Uuid::new_v4().as_u128() as i64),
-                    name: ActiveValue::set(uuid::Uuid::new_v4().to_string()),
-                    age: ActiveValue::set(add_user.age),
-                    sex: ActiveValue::set(add_user.sex),
-                }
-                .insert(txn)
-                .await?;
+    // app_ctx
+    //     .db_conn
+    //     .transaction::<_, (), DbErr>(|txn| {
+    //         Box::pin(async move {
+    //             let add = user::user::ActiveModel {
+    //                 id: ActiveValue::set(uuid::Uuid::new_v4().as_u128() as i64),
+    //                 name: ActiveValue::set(uuid::Uuid::new_v4().to_string()),
+    //                 age: ActiveValue::set(add_user.age),
+    //                 sex: ActiveValue::set(add_user.sex),
+    //             }
+    //             .insert(txn)
+    //             .await?;
+    //
+    //             Ok::<_, DbErr>(())
+    //         })
+    //     })
+    //     .await?;
 
-                Ok::<_, DbErr>(())
-            })
-        })
-        .await?;
-
-    // transaction tow
+    // transaction tow  XA not support tow transaction in one app
     app_ctx
         .db_conn
         .transaction::<_, anyhow::Result<user::user::Model>, DbErr>(|txn| {

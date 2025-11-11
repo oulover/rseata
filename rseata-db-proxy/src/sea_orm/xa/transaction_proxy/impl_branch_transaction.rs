@@ -1,11 +1,8 @@
-use crate::sea_orm::xa::connection_proxy::XAConnectionProxy;
 use crate::sea_orm::xa::transaction_proxy::{TransactionType, XATransactionProxy};
 use async_trait::async_trait;
-use rseata_core::branch::branch_manager_inbound::BranchManagerInbound;
 use rseata_core::branch::branch_transaction::BranchTransaction;
 use rseata_core::branch::{BranchId, BranchStatus, BranchType};
 use rseata_core::types::{ResourceId, Xid};
-use sea_orm::{DbErr, ExecResult, TransactionSession};
 
 #[async_trait]
 impl BranchTransaction for XATransactionProxy {
@@ -19,21 +16,17 @@ impl BranchTransaction for XATransactionProxy {
     ) -> anyhow::Result<BranchStatus> {
         tracing::info!("XA branch_commit ing :{xid},{branch_id}",);
 
-
-        let xa_r = self.xa_connection_proxy.xa_commit(&xid).await;
-        return match xa_r {
-            Ok(_) => {
-                tracing::info!("XA branch_commit success :{xid},{branch_id}",);
-                let r = {self.xa_connection_proxy.xa_id.read().await.clone()};
-                tracing::info!("XA branch_commit success :{:?}",r);
-                tracing::info!("XA branch_commit success :{:?}",self.xa_connection_proxy.is_xa_end);
-                Ok(BranchStatus::PhaseTwoCommitted)
+        match &self.transaction_type {
+            TransactionType::Local(local) => {
+                let t = local.lock().await.take();
+                if let Some(t) = t {
+                    t.commit().await?;
+                }
             }
-            Err(e) => {
-                tracing::error!("Failed to commit xa:{}", e.to_string());
-                Ok(BranchStatus::PhaseTwoCommitFailedUnretryable)
+            TransactionType::XA(xa_transaction) => {
+                xa_transaction.xa_commit().await?;
             }
-        };
+        }
         Ok(BranchStatus::PhaseTwoCommitted)
     }
 
@@ -45,22 +38,17 @@ impl BranchTransaction for XATransactionProxy {
         resource_id: ResourceId,
         application_data: String,
     ) -> anyhow::Result<BranchStatus> {
-        tracing::info!("XA branch_rollback ing :{xid},{branch_id}",);
-        let xa_r = self.xa_connection_proxy.xa_rollback(&xid).await;
-        return match xa_r {
-            Ok(_) => {
-                tracing::info!("XA branch_rollback success :{xid},{branch_id}",);
-                Ok(BranchStatus::PhaseTwoRollbacked)
+        match &self.transaction_type {
+            TransactionType::Local(local) => {
+                let t = local.lock().await.take();
+                if let Some(t) = t {
+                    t.rollback().await?;
+                }
             }
-            Err(e) => {
-                tracing::error!("Failed to rollback xa:{}", e.to_string());
-
-                let r = {self.xa_connection_proxy.xa_id.read().await.clone()};
-                tracing::info!("XA branch_commit success :{:?}",r);
-                tracing::info!("XA branch_commit success :{:?}",self.xa_connection_proxy.is_xa_end);
-                Ok(BranchStatus::PhaseTwoRollbackFailedUnretryable)
-            },
-        };
+            TransactionType::XA(xa_transaction) => {
+                xa_transaction.xa_rollback().await?;
+            }
+        }
         Ok(BranchStatus::PhaseTwoCommitted)
     }
 }

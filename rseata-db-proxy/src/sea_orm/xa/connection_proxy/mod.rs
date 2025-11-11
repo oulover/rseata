@@ -21,32 +21,19 @@ pub struct XAId(pub String);
 
 #[derive(Clone)]
 pub struct XAConnectionProxy {
-    pub url: String,
-    pub xa_id: Arc<RwLock<Option<(XAId, Option<Xid>)>>>,
-    pub is_xa_end: Arc<AtomicBool>,
-    pub is_xa_prepare: Arc<AtomicBool>,
+    pub url: String, 
     pub sea_connection: sea_orm::DatabaseConnection,
-    pub one_connection: Arc<Mutex<MySqlConnection>>,
+
 }
 impl XAConnectionProxy {
     pub async fn connect_mysql(url: &str) -> Result<Self, DbErr> {
         let t = sea_orm::Database::connect(url).await?;
-        let   pool =  t
-            .get_mysql_connection_pool()
-            .acquire()
-            .await
-            .map_err(|err| DbErr::Custom(err.to_string()))?;
-        
-        let conn = pool.detach();
+       
 
         
         Ok(Self {
             url: url.to_string(),
-            xa_id: Arc::new(RwLock::new(None)),
-            is_xa_end: Arc::new(Default::default()),
-            is_xa_prepare: Arc::new(Default::default()),
             sea_connection: t,
-            one_connection: Arc::new(Mutex::new(conn)),
         })
     }
 }

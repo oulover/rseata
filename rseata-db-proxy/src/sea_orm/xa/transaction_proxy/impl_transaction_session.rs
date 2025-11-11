@@ -7,18 +7,15 @@ impl TransactionSession for XATransactionProxy {
         match self.transaction_type {
             TransactionType::Local(local) => {
                 let r = local.lock().await.take();
-                if let Some( r) = r {
+                if let Some(r) = r {
                     r.commit().await
-                }else { 
+                } else {
                     Ok(())
                 }
-            },
-            TransactionType::XA(ref xa_id) => {
-                tracing::info!("-----------------------------1--");
-                self.branch_register(&xa_id).await?;
-                tracing::info!("-----------------------------2--");
-                let end_result = self.xa_connection_proxy.xa_end(xa_id).await;
-                tracing::info!("-------------------------end_result----3--{:?}",end_result);
+            }
+            TransactionType::XA(ref xa_transaction) => {
+                self.branch_register().await?;
+                let end_result = xa_transaction.xa_end().await;
                 let lucked = self.check_lock().await?;
                 if !lucked {
                     tracing::error!("Check lock failed");
@@ -27,12 +24,14 @@ impl TransactionSession for XATransactionProxy {
 
                 match end_result {
                     Ok(_) => {
-                        let prepare_result =  self.xa_connection_proxy.xa_prepare(xa_id).await;
-                        tracing::info!("-------------------------prepare_result----4--{:?}",prepare_result);
-                        
+                        let prepare_result = xa_transaction.xa_prepare().await;
+                        tracing::info!(
+                            "-------------------------prepare_result----4--{:?}",
+                            prepare_result
+                        );
+
                         match prepare_result {
-                            Ok(_) => XATransactionProxy::global_commit(prepare_result)
-                                .await,
+                            Ok(_) => XATransactionProxy::report_local_commit(prepare_result).await,
                             Err(_) => self.rollback().await,
                         }
                     }
@@ -43,19 +42,18 @@ impl TransactionSession for XATransactionProxy {
     }
 
     async fn rollback(self) -> Result<(), DbErr> {
-
-        match self.transaction_type {
+        match &self.transaction_type {
             TransactionType::Local(local) => {
                 let r = local.lock().await.take();
-                if let Some( r) = r {
+                if let Some(r) = r {
                     r.rollback().await
-                }else {
+                } else {
                     Ok(())
                 }
-            },
-            TransactionType::XA(ref xa_id) => {
-                self.branch_register(xa_id).await?;
-                let end_result = self.xa_connection_proxy.xa_rollback_xa_id(xa_id).await;
+            }
+            TransactionType::XA(xa_transaction) => {
+                self.branch_register().await?;
+                let end_result = xa_transaction.xa_rollback().await;
                 let _ = XATransactionProxy::global_rollback().await?;
                 end_result.map(|_| ())
             }

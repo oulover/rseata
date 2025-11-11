@@ -4,7 +4,7 @@ use std::pin::Pin;
 
 // impl StreamTrait for XATransactionProxy {
 //     type Stream<'a> = TransactionStream<'a>;
-// 
+//
 //     fn get_database_backend(&self) -> DbBackend {
 //         StreamTrait::get_database_backend(&self.xa_connection_proxy)
 //     }
@@ -18,7 +18,7 @@ use std::pin::Pin;
 //                   local.stream_raw(stmt)
 //                 }else {
 //                     unreachable!()
-//                 } 
+//                 }
 //             },
 //             TransactionType::XA(_, ..) => {
 //                 unreachable!()

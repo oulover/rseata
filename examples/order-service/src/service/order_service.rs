@@ -1,14 +1,9 @@
 use crate::context::AppContext;
 use crate::order;
-use anyhow::anyhow;
-use example_proto::rseata_proto::proto::{AddUserRequest, GetUserByIdRequest};
-use rseata::FutureExt;
-use rseata::RSEATA_CLIENT_SESSION;
+use example_proto::rseata_proto::proto::AddUserRequest;
 use rseata::global_transaction;
 use sea_orm::sqlx::types::uuid;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, DbErr, EntityTrait, TransactionSession, TransactionTrait,
-};
+use sea_orm::{ActiveValue, DbErr, EntityTrait, TransactionTrait};
 use std::sync::Arc;
 
 #[global_transaction("add_order_then_add_user")]

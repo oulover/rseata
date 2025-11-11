@@ -7,10 +7,6 @@ use sea_orm::{
 use std::env;
 use std::fmt::{Debug, Display};
 use std::pin::Pin;
-fn get_app_id() -> String {
-    env::var("APP_ID").expect("APP_ID not set")
-}
-
 #[async_trait::async_trait]
 impl TransactionTrait for XAConnectionProxy {
     type Transaction = XATransactionProxy;

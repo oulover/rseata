@@ -4,7 +4,6 @@ use sea_orm::{ConnectionTrait, DbBackend, DbErr, ExecResult, QueryResult, Statem
 #[async_trait::async_trait]
 impl ConnectionTrait for ATConnectionProxy {
     fn get_database_backend(&self) -> DbBackend {
-        println!("------get_database_backend----------------------");
         self.sea_conn.get_database_backend()
     }
 

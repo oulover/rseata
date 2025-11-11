@@ -6,7 +6,6 @@ impl ConnectionTrait for XATransactionProxy {
     fn get_database_backend(&self) -> DbBackend {
         ConnectionTrait::get_database_backend(&self.xa_connection_proxy)
     }
-
     async fn execute_raw(&self, stmt: Statement) -> Result<ExecResult, DbErr> {
 
         self.xa_connection_proxy.execute_raw(stmt).await

@@ -21,15 +21,9 @@ impl TransactionSession for XATransactionProxy {
                     tracing::error!("Check lock failed");
                     return self.rollback().await;
                 }
-
                 match end_result {
                     Ok(_) => {
                         let prepare_result = xa_transaction.xa_prepare().await;
-                        tracing::info!(
-                            "-------------------------prepare_result----4--{:?}",
-                            prepare_result
-                        );
-
                         match prepare_result {
                             Ok(_) => XATransactionProxy::report_local_commit(prepare_result).await,
                             Err(_) => self.rollback().await,
@@ -54,7 +48,7 @@ impl TransactionSession for XATransactionProxy {
             TransactionType::XA(xa_transaction) => {
                 self.branch_register().await?;
                 let end_result = xa_transaction.xa_rollback().await;
-                let _ = XATransactionProxy::global_rollback().await?;
+                let _ = XATransactionProxy::report_local_rollback().await?;
                 end_result.map(|_| ())
             }
         }

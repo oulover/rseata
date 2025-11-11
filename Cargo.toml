@@ -26,16 +26,16 @@ readme.workspace = true
 license.workspace = true
 
 [dependencies]
-rseata-core = { version = "0.1.1", path = "rseata-core", optional = true }
-rseata-tm = { version = "0.1.1", path = "rseata-tm", optional = true }
-rseata-rm = { version = "0.1.1", path = "rseata-rm", optional = true }
-rseata-db-proxy = { version = "0.1.1", path = "rseata-db-proxy", features = ["default"], optional = true }
-rseata-micro = { version = "0.1.1", path = "rseata-micro", optional = true }
+rseata-core = { version = "0.1.2", path = "rseata-core", optional = true }
+rseata-tm = { version = "0.1.2", path = "rseata-tm", optional = true }
+rseata-rm = { version = "0.1.2", path = "rseata-rm", optional = true }
+rseata-db-proxy = { version = "0.1.2", path = "rseata-db-proxy", features = ["default"], optional = true }
+rseata-micro = { version = "0.1.2", path = "rseata-micro", optional = true }
 
 [workspace.package]
 authors = ["peng-ou"]
 description = "rust seata"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 
 rust-version = "1.90.0"

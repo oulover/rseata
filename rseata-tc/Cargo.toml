@@ -23,8 +23,8 @@ tokio = { workspace = true, features = ["full"] }
 tonic = { workspace = true }
 
 async-trait = { workspace = true }
-rseata-core = { path = "../rseata-core", version = "0.1.1"}
-rseata-proto = { path = "../rseata-proto" , version = "0.1.1"}
+rseata-core = { path = "../rseata-core", version = "0.1.2"}
+rseata-proto = { path = "../rseata-proto" , version = "0.1.2"}
 uuid = { workspace = true, features = ["v4"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

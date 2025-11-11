@@ -16,7 +16,7 @@ tonic = { workspace = true, features = ["server"] }
 tower = { workspace = true }
 anyhow = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
-rseata-proto = { path = "../rseata-proto", version = "0" }
+rseata-proto = { path = "../rseata-proto", version = "0.1.2" }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 async-trait = { workspace = true }

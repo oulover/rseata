@@ -1,6 +1,7 @@
 use crate::branch::{BranchId, BranchStatus, BranchType};
 use crate::types::{ResourceId, Xid};
 use tonic::async_trait;
+use crate::branch::branch_transaction::BranchTransaction;
 
 #[async_trait]
 pub trait BranchManagerInbound {

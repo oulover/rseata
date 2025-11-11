@@ -11,7 +11,6 @@ impl ConnectionTrait for XAConnectionProxy {
         self.sea_connection.execute_raw(stmt).await
     }
 
-    #[allow(unused_variables)]
     async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult, DbErr> {
         self.sea_connection.execute_unprepared(sql).await
     }

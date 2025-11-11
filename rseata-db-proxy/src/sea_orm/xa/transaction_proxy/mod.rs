@@ -5,25 +5,22 @@ mod impl_transaction_session;
 mod impl_transaction_trait;
 
 use crate::sea_orm::xa::connection_proxy::{XAConnectionProxy, XAId};
-use rseata_core::RSEATA_CLIENT_SESSION;
-use rseata_core::branch::BranchType;
 use rseata_core::branch::branch_manager_outbound::BranchManagerOutbound;
 use rseata_core::branch::branch_transaction::BranchTransactionRegistry;
+use rseata_core::branch::BranchType;
 use rseata_core::resource::Resource;
 use rseata_core::transaction::transaction_manager::TransactionManager;
 use rseata_core::types::Xid;
+use rseata_core::RSEATA_CLIENT_SESSION;
 use rseata_rm::RSEATA_RM;
 use rseata_tm::RSEATA_TM;
-use sea_orm::sqlx::pool::PoolConnection;
 use sea_orm::sqlx::types::uuid;
-use sea_orm::sqlx::{Executor, MySqlConnection, Transaction};
+use sea_orm::sqlx::{Executor, MySqlConnection};
 use sea_orm::{
-    AccessMode, ConnectionTrait, DatabaseTransaction, DbErr, IsolationLevel, RuntimeErr,
-    TransactionTrait, sqlx,
+    AccessMode, DatabaseTransaction, DbErr, IsolationLevel, RuntimeErr, TransactionTrait,
 };
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct XATransaction {
@@ -207,7 +204,7 @@ impl XATransactionProxy {
 
     pub async fn report_local_rollback() -> Result<(), DbErr> {
         let session = RSEATA_CLIENT_SESSION.try_get().ok();
-       
+
         if let Some(session) = session {
             if session.is_global_tx_started() {
                 if let Some(xid) = session.get_xid() {

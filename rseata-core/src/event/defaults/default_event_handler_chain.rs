@@ -30,7 +30,6 @@ impl EventHandlerChain for DefaultEventHandlerChain {
     async fn handle_event(&self, event: &TransactionEvent) -> Vec<Result<(), EventError>> {
         let mut results = Vec::new();
         for handler in &self.handlers {
-            // 检查处理器是否对该事件类型感兴趣
             let interested_types = handler.interested_event_types();
             if interested_types.is_empty()
                 || interested_types

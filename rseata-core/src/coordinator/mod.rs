@@ -12,17 +12,3 @@ pub mod core_service;
 pub trait Coordinator: BranchManagerOutbound + ResourceRegistry + TransactionManager {}
 pub trait Core:  BranchManagerOutbound {}
 pub trait AbstractCore: TransactionCoordinatorOutbound +HandleBranchType + Core {}
-
-
-
-
-
-// BranchSessionService queryByXid deleteBranchSession forceDeleteBranchSession : SessionLifecycle.changeBranchStatus
-// GlobalLockService:queryGlobalByXid deleteLock query check
-// AbstractGlobalService  deleteGlobalSession: SessionLifecycle.changeGlobalStatus(GlobalStatus.Deleting);
-// session :  SessionLifecycle
-
-
-
-// DefaultCore 更具branch type 发送 给 不同的 Core 处理
-// CoreService 提供执行接口 给web 调用

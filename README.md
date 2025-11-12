@@ -4,8 +4,8 @@
 
 <h3>🐚Rust实现的分布式事务框架</h3>
 
-![Static Badge](https://img.shields.io/badge/crates.io-rseata-0?link=https%3A%2F%2Fcrates.io%2Fcrates%2Frseata)
-![Static Badge](https://img.shields.io/badge/doc-rseata-0?link=https%3A%2F%2Fdocs.rs%2Frseata)
+![Static Badge](https://img.shields.io/badge/crates.io-rseata-0?link=https://crates.io/crates/rseata)
+![Static Badge](https://img.shields.io/badge/doc-rseata-0?link=https://docs.rs/rseata)
 
 </div>
 

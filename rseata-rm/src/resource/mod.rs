@@ -8,26 +8,22 @@ use rseata_core::types::{ClientId, GlobalStatus, ResourceId, Xid};
 use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::RwLock;
 
-use rseata_core::branch::branch_manager_inbound::BranchManagerInbound;
-use rseata_core::branch::branch_manager_outbound::BranchManagerOutbound;
-use rseata_core::branch::branch_transaction::{BranchTransaction, BranchTransactionRegistry};
-use rseata_core::branch::{BranchId, BranchStatus, BranchType};
-use rseata_core::grpc_client::GrpcContext;
+use rseata_core::branch::branch_transaction::BranchTransaction;
+use rseata_core::branch::{BranchId, BranchType};
 use rseata_core::grpc_client::rm_grpc_client::LazyRMGrpcClient;
+use rseata_core::grpc_client::GrpcContext;
 use rseata_core::handle_branch_type::HandleBranchType;
-use rseata_core::resource::Resource;
 use rseata_core::resource::resource_manager::{GlobalStatusQuery, ResourceManager};
 use rseata_core::resource::resource_registry::ResourceRegistry;
-use rseata_proto::rseata_proto::proto::resource_instruction::Instruction;
+use rseata_core::resource::Resource;
 use rseata_proto::rseata_proto::proto::{
-    BranchRegisterRequest, BranchReportRequest, LockQueryRequest, ResourceInstruction,
+    ResourceInstruction,
     ResourceProto,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 use tonic::codegen::tokio_stream::StreamExt;
-use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
 #[derive(Clone, Debug)]

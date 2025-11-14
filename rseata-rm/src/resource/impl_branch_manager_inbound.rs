@@ -17,7 +17,6 @@ impl BranchManagerInbound for DefaultResourceManager {
     ) -> anyhow::Result<BranchStatus> {
         tracing::info!("BranchManagerInbound branch_commit------");
 
-        // 使用 Option::take 来获取所有权而不是移动
         let mut branch_transaction = {
             let mut transactions = self.branch_transactions.write().await;
             transactions.remove(&branch_id)

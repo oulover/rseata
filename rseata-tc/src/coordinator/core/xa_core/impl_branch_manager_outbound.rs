@@ -1,4 +1,4 @@
-use crate::coordinator::core::at_core::ATCore;
+use crate::coordinator::core::xa_core::XACore;
 use async_trait::async_trait;
 use rseata_core::branch::branch_manager_outbound::BranchManagerOutbound;
 use rseata_core::branch::{BranchId, BranchStatus, BranchType};
@@ -10,7 +10,7 @@ use rseata_core::types::{ClientId, ResourceId, Xid};
 use uuid::Uuid;
 
 #[async_trait]
-impl BranchManagerOutbound for ATCore {
+impl BranchManagerOutbound for XACore {
     async fn branch_register(
         &self,
         branch_type: BranchType,
@@ -30,21 +30,10 @@ impl BranchManagerOutbound for ATCore {
 
         let branch_id = BranchId::from(Uuid::new_v4().as_u128() as u64);
 
-        // In AT mode, lock_keys need to be checked for conflicts before registering the branch
-        if !lock_keys.is_empty() {
-            let is_lockable = self.lock_manager
-                .is_lockable(&xid, &resource_id, global_session.transaction_id, &lock_keys)
-                .await
-                .map_err(|e| anyhow::anyhow!("Lock check failed: {}", e))?;
-
-            if !is_lockable {
-                return Err(anyhow::anyhow!("Global lock conflict for resource {}, lock_keys: {}", resource_id.0, lock_keys));
-            }
-        }
-
         let resource_id_for_log = resource_id.clone();
         let xid_for_log = xid.clone();
 
+        // For XA mode, register the branch with appropriate initial status
         self.session_manager
             .add_branch_session(
                 &global_session,
@@ -56,16 +45,16 @@ impl BranchManagerOutbound for ATCore {
                     resource_id: Some(resource_id),
                     lock_key: Some(lock_keys),
                     branch_type,
-                    status: BranchStatus::Registered,
+                    status: BranchStatus::Registered, // Initially registered
                     client_id,
                     application_data: Some(application_data),
-                    lock_status: LockStatus::Locked,
+                    lock_status: LockStatus::Released, // In XA, locks are managed differently
                     lock_holder: Default::default(),
                 },
             )
             .await?;
 
-        tracing::info!("AT branch {} registered for xid {} and resource {}", branch_id.0, xid_for_log.0, resource_id_for_log.0);
+        tracing::info!("XA branch {} registered for xid {} and resource {}", branch_id.0, xid_for_log.0, resource_id_for_log.0);
 
         Ok(branch_id)
     }
@@ -94,7 +83,7 @@ impl BranchManagerOutbound for ATCore {
             .update_branch_session_status(&global_session, &branch_session, status)
             .await?;
 
-        tracing::info!("AT branch {} reported status {:?} for xid {}", branch_id.0, status, xid.0);
+        tracing::info!("XA branch {} reported status {:?} for xid {}", branch_id.0, status, xid.0);
 
         Ok(())
     }
@@ -106,25 +95,11 @@ impl BranchManagerOutbound for ATCore {
         xid: Xid,
         lock_keys: String,
     ) -> anyhow::Result<bool> {
-        tracing::debug!("AT lock_query for resource {} and xid {}, lock_keys: {}", resource_id.0, xid.0, lock_keys);
+        tracing::debug!("XA lock_query for resource {} and xid {}, lock_keys: {}", resource_id.0, xid.0, lock_keys);
 
-        let global_session = self
-            .session_manager
-            .find_global_session(&xid)
-            .await
-            .ok_or_else(|| {
-                tonic::Status::invalid_argument(format!("no such global session {}", xid))
-            })?;
-        let r = self
-            .lock_manager
-            .is_lockable(
-                &xid,
-                &resource_id,
-                global_session.transaction_id,
-                lock_keys.as_str(),
-            )
-            .await?;
-        tracing::debug!("AT lock_query result: {}", r);
-        Ok(r)
+        // For XA mode, the locking happens at the database level during XA operations
+        // So we generally allow the lock query to pass
+        // In XA, the database handles row-level locking during XA operations
+        Ok(true)
     }
 }

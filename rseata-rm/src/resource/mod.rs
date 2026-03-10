@@ -34,17 +34,32 @@ pub struct ResourceInfo {
     client_id: ClientId,
 }
 impl ResourceInfo {
-    pub fn new_with_env(branch_type: BranchType) -> Self {
+    pub fn new_with_env() -> Self {
         let resource_group_id = env::var("RSEATA_RM_RESOURCE_GROUP_ID")
             .unwrap_or("RSEATA_RM_RESOURCE_GROUP_ID".to_owned());
         let resource_id =
             env::var("RSEATA_RM_RESOURCE_ID").expect("env RSEATA_RM_RESOURCE_ID not set");
+        // Parse branch type from environment variable, default to AT
+        let branch_type = env::var("RSEATA_BRANCH_TYPE")
+            .unwrap_or_else(|_| "AT".to_string())
+            .to_uppercase();
+        let branch_type = match branch_type.as_str() {
+            "AT" => BranchType::AT,
+            "XA" => BranchType::XA,
+            "TCC" => BranchType::TCC,
+            "SAGA" => BranchType::SAGA,
+            _ => BranchType::AT, // default fallback
+        };
         Self {
             resource_group_id,
             resource_id: ResourceId::from(resource_id),
             branch_type,
             client_id: ClientId::from(Uuid::new_v4().as_u128() as u64),
         }
+    }
+
+    pub fn branch_type(&self) -> BranchType {
+        self.branch_type
     }
 }
 #[async_trait]
@@ -111,7 +126,7 @@ impl ResourceManager for DefaultResourceManager {
 
 impl HandleBranchType for DefaultResourceManager {
     fn handle_branch_type(&self) -> BranchType {
-        todo!()
+        self.resource_info.branch_type()
     }
 }
 
@@ -119,5 +134,88 @@ impl HandleBranchType for DefaultResourceManager {
 impl GlobalStatusQuery for DefaultResourceManager {
     async fn get_global_status(&self, xid: Xid) -> anyhow::Result<GlobalStatus> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[test]
+    fn test_resource_info_branch_type_from_env() {
+        // Save original values
+        let original_resource_id = env::var("RSEATA_RM_RESOURCE_ID").ok();
+        let original_group_id = env::var("RSEATA_RM_RESOURCE_GROUP_ID").ok();
+        let original_branch_type = env::var("RSEATA_BRANCH_TYPE").ok();
+
+        unsafe {
+            env::set_var("RSEATA_RM_RESOURCE_ID", "test-resource");
+            env::set_var("RSEATA_RM_RESOURCE_GROUP_ID", "test-group");
+        }
+
+        // Test default (AT)
+        unsafe {
+            env::remove_var("RSEATA_BRANCH_TYPE");
+        }
+        let info = ResourceInfo::new_with_env();
+        assert_eq!(info.branch_type(), BranchType::AT);
+
+        // Test XA
+        unsafe {
+            env::set_var("RSEATA_BRANCH_TYPE", "XA");
+        }
+        let info = ResourceInfo::new_with_env();
+        assert_eq!(info.branch_type(), BranchType::XA);
+
+        // Test TCC
+        unsafe {
+            env::set_var("RSEATA_BRANCH_TYPE", "TCC");
+        }
+        let info = ResourceInfo::new_with_env();
+        assert_eq!(info.branch_type(), BranchType::TCC);
+
+        // Test SAGA
+        unsafe {
+            env::set_var("RSEATA_BRANCH_TYPE", "SAGA");
+        }
+        let info = ResourceInfo::new_with_env();
+        assert_eq!(info.branch_type(), BranchType::SAGA);
+
+        // Test unknown falls back to AT
+        unsafe {
+            env::set_var("RSEATA_BRANCH_TYPE", "UNKNOWN");
+        }
+        let info = ResourceInfo::new_with_env();
+        assert_eq!(info.branch_type(), BranchType::AT);
+
+        // Restore env
+        if let Some(val) = original_resource_id {
+            unsafe {
+                env::set_var("RSEATA_RM_RESOURCE_ID", val);
+            }
+        } else {
+            unsafe {
+                env::remove_var("RSEATA_RM_RESOURCE_ID");
+            }
+        }
+        if let Some(val) = original_group_id {
+            unsafe {
+                env::set_var("RSEATA_RM_RESOURCE_GROUP_ID", val);
+            }
+        } else {
+            unsafe {
+                env::remove_var("RSEATA_RM_RESOURCE_GROUP_ID");
+            }
+        }
+        if let Some(val) = original_branch_type {
+            unsafe {
+                env::set_var("RSEATA_BRANCH_TYPE", val);
+            }
+        } else {
+            unsafe {
+                env::remove_var("RSEATA_BRANCH_TYPE");
+            }
+        }
     }
 }

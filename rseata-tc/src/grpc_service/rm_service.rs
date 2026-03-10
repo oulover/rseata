@@ -167,7 +167,7 @@ impl ResourceManagerService for TCGrpcService {
         let request = request.into_inner();
         tracing::info!("Lock query----{:?}", request);
 
-        let lucked = self
+        let locked = self
             .coordinator
             .lock_query(
                 request.branch_type.into(),
@@ -179,7 +179,7 @@ impl ResourceManagerService for TCGrpcService {
             .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(LockQueryResponse {
-            locked: lucked,
+            locked: locked,
             base: BaseResponse::success().some(),
         }))
     }

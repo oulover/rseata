@@ -1,6 +1,7 @@
 use crate::sea_orm::at::transaction_proxy::ATTransactionProxy;
 use sea_orm::{AccessMode, DbErr, IsolationLevel, TransactionTrait};
 use std::fmt::{Debug, Display};
+use std::future::Future;
 use std::pin::Pin;
 
 #[async_trait::async_trait]

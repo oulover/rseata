@@ -6,18 +6,23 @@ mod impl_transaction_trait;
 use crate::sea_orm::at::connection_proxy::ATConnectionProxy;
 use crate::sea_orm::at::transaction_proxy::impl_connection_trait::get_sql_pars_detect;
 use rseata_core::RSEATA_CLIENT_SESSION;
+use rseata_core::branch::BranchId;
 use rseata_core::branch::BranchType;
 use rseata_core::branch::branch_manager_outbound::BranchManagerOutbound;
+use rseata_core::branch::undo_log::{RowImage, SQLType, UndoLog, UndoLogManager};
 use rseata_core::resource::Resource;
+use rseata_core::types::Xid;
 use rseata_rm::RSEATA_RM;
 use sea_orm::sqlx::{Column, Row, TypeInfo};
 use sea_orm::{ConnectionTrait, DbErr, Statement};
 use std::collections::HashMap;
 use rseata_core::branch::branch_transaction::BranchTransactionRegistry;
+use tokio::sync::Mutex;
 
 pub struct ATTransactionProxy {
     at_connection_proxy: ATConnectionProxy,
     sea_transaction: sea_orm::DatabaseTransaction,
+    undo_logs: std::sync::Arc<Mutex<Vec<UndoLog>>>,
 }
 impl ATTransactionProxy {
     pub(crate) fn new(
@@ -27,6 +32,7 @@ impl ATTransactionProxy {
         Self {
             at_connection_proxy,
             sea_transaction,
+            undo_logs: std::sync::Arc::new(tokio::sync::Mutex::new(Vec::new())),
         }
     }
 }
@@ -44,6 +50,29 @@ impl ATTransactionProxy {
             "TransactionSession------prepare_undo_log----------------------{:?}",
             session
         );
+
+        // Get undo logs collected during transaction execution
+        let undo_logs = self.undo_logs.lock().await;
+
+        if undo_logs.is_empty() {
+            println!("No undo logs to prepare");
+            return Ok(());
+        }
+
+        println!("Preparing {} undo logs", undo_logs.len());
+
+        // Get undo log manager from connection
+        let undo_log_manager = self.at_connection_proxy.undo_log_manager();
+
+        // Store each undo log
+        for undo_log in undo_logs.iter() {
+            if let Err(e) = undo_log_manager.add_undo_log(undo_log.clone()).await {
+                eprintln!("Failed to store undo log: {}", e);
+                // Continue with other logs
+            }
+        }
+
+        println!("Successfully prepared {} undo logs", undo_logs.len());
         Ok(())
     }
     pub async fn branch_register(&self) -> Result<(), DbErr> {
@@ -57,7 +86,7 @@ impl ATTransactionProxy {
             println!("------------注册 RM 分支事务--ing---");
             let xid_guard = session.get_xid();
             if let Some(xid) = xid_guard {
-                let lock_keys = session.get_branch_luck_keys().await.unwrap_or_default();
+                let lock_keys = session.get_branch_lock_keys().await.unwrap_or_default();
                 let branch_id = RSEATA_RM
                     .branch_transaction_registry(
                         RSEATA_RM.resource_info.get_branch_type().await,
@@ -129,12 +158,12 @@ impl ATTransactionProxy {
         Ok(())
     }
 
-    pub async fn check_luck(&self) -> Result<bool, DbErr> {
+    pub async fn check_lock(&self) -> Result<bool, DbErr> {
         let session = RSEATA_CLIENT_SESSION.try_get().ok();
         if let Some(session) = &session {
             let xid_guard = session.get_xid();
             if let Some(xid) = xid_guard {
-                let lock_keys = session.get_branch_luck_keys().await.unwrap_or_default();
+                let lock_keys = session.get_branch_lock_keys().await.unwrap_or_default();
                 let locked = RSEATA_RM
                     .lock_query(
                         RSEATA_RM.resource_info.get_branch_type().await,
@@ -144,7 +173,6 @@ impl ATTransactionProxy {
                     )
                     .await
                     .map_err(|e| DbErr::Custom(e.to_string()))?;
-                println!("------------check_luck---完成{}", locked);
                 return Ok(locked);
             }
         }
@@ -164,33 +192,53 @@ impl ATTransactionProxy {
         // 处理结果集
         let mut rows = Vec::new();
         for result in query_results {
-            let row = result
-                .try_as_mysql_row()
-                .ok_or_else(|| DbErr::Custom("Not a MySQL row".into()))?;
-
             let mut map = serde_json::Map::new();
 
-            // 遍历所有列
-            for col in row.columns().iter() {
-                // 将UStr转换为字符串
-                let col_name_str = col.name().to_string();
-                let index = col.ordinal();
+            // 获取列名
+            let column_names = result.column_names();
+
+            for (i, col_name) in column_names.iter().enumerate() {
                 // 获取值并转换为JSON类型
-                let value = match row.try_get::<String, _>(index) {
-                    Ok(s) => serde_json::Value::String(s),
-                    Err(_) => match row.try_get::<i64, _>(index) {
-                        Ok(n) => serde_json::Value::Number(n.into()),
-                        Err(_) => match row.try_get::<f64, _>(index) {
-                            Ok(f) => serde_json::Value::from(f),
-                            Err(_) => match row.try_get::<bool, _>(index) {
-                                Ok(b) => serde_json::Value::Bool(b),
-                                Err(_) => serde_json::Value::Null,
-                            },
-                        },
-                    },
+                let value = if let Ok(s) = result.try_get::<String>("", col_name) {
+                    serde_json::Value::String(s)
+                } else if let Ok(n) = result.try_get::<i32>("", col_name) {
+                    serde_json::Value::Number(n.into())
+                } else if let Ok(n) = result.try_get::<i64>("", col_name) {
+                    serde_json::Value::Number(n.into())
+                } else if let Ok(f) = result.try_get::<f64>("", col_name) {
+                    serde_json::Value::from(f)
+                } else if let Ok(b) = result.try_get::<bool>("", col_name) {
+                    serde_json::Value::Bool(b)
+                } else if let Ok(opt_s) = result.try_get::<Option<String>>("", col_name) {
+                    match opt_s {
+                        Some(s) => serde_json::Value::String(s),
+                        None => serde_json::Value::Null,
+                    }
+                } else if let Ok(opt_i32) = result.try_get::<Option<i32>>("", col_name) {
+                    match opt_i32 {
+                        Some(n) => serde_json::Value::Number(n.into()),
+                        None => serde_json::Value::Null,
+                    }
+                } else if let Ok(opt_i64) = result.try_get::<Option<i64>>("", col_name) {
+                    match opt_i64 {
+                        Some(n) => serde_json::Value::Number(n.into()),
+                        None => serde_json::Value::Null,
+                    }
+                } else if let Ok(opt_f64) = result.try_get::<Option<f64>>("", col_name) {
+                    match opt_f64 {
+                        Some(f) => serde_json::Value::from(f),
+                        None => serde_json::Value::Null,
+                    }
+                } else if let Ok(opt_bool) = result.try_get::<Option<bool>>("", col_name) {
+                    match opt_bool {
+                        Some(b) => serde_json::Value::Bool(b),
+                        None => serde_json::Value::Null,
+                    }
+                } else {
+                    serde_json::Value::Null
                 };
 
-                map.insert(col_name_str, value);
+                map.insert(col_name.to_string(), value);
             }
 
             rows.push(serde_json::Value::Object(map));
@@ -201,6 +249,26 @@ impl ATTransactionProxy {
 
     async fn process_execute(&self, statement: &Statement) -> Result<(), DbErr> {
         println!("Processing execute: {:?}", statement);
+
+        // 获取当前会话信息
+        let session = RSEATA_CLIENT_SESSION.try_get().ok();
+        let xid_opt = session.as_ref().and_then(|s| s.get_xid().as_ref().cloned());
+        let branch_id_opt = session.as_ref().and_then(|s| {
+            // 使用 Option 类型的 get_branch_id
+            Some(s.get_branch_id()) // 这会返回 BranchId，我们假设它始终存在
+        });
+
+        let (xid_opt, branch_id_opt): (Option<Xid>, Option<BranchId>) = (xid_opt, branch_id_opt);
+
+        // 如果不是全局事务，不需要记录undo log
+        if xid_opt.is_none() || branch_id_opt.is_none() {
+            println!("Not in global transaction, skipping undo log");
+            return Ok(());
+        }
+
+        let xid = xid_opt.unwrap();
+        let branch_id = branch_id_opt.unwrap();
+
         let detect = get_sql_pars_detect(&ConnectionTrait::get_database_backend(
             &self.at_connection_proxy,
         ));
@@ -209,225 +277,475 @@ impl ATTransactionProxy {
         match &parsed {
             Ok(parsed_statements) => {
                 for parsed_statement in parsed_statements {
-                    if let sqlparser::ast::Statement::Update {
-                        table,
-                        assignments,
-                        from,
-                        selection,
-                        returning,
-                        or,
-                        limit,
-                    } = parsed_statement
-                    {
-                        println!("sqlparser table----: {:?}", table);
-                        println!("sqlparser assignments----: {:?}", assignments);
-                        println!("sqlparser from----: {:?}", from);
-                        println!("sqlparser selection----: {:?}", selection);
-                        println!("sqlparser returning----: {:?}", returning);
-                        println!("sqlparser or----: {:?}", or);
-                        println!("sqlparser limit----: {:?}", limit);
-
-                        let table_name = table.relation.to_string();
-                        let where_clause = selection
-                            .as_ref()
-                            .map(|e| e.to_string())
-                            .unwrap_or_default();
-
-                        println!(
-                            "sqlparser where_clause----where_clause : {:?}",
-                            where_clause
-                        );
-
-                        for assignment in assignments {
-                            println!("assignments-------------{:?}", assignment);
+                    match parsed_statement {
+                        sqlparser::ast::Statement::Update {
+                            table,
+                            assignments,
+                            selection,
+                            ..
+                        } => {
+                            self.process_update(
+                                statement,
+                                table,
+                                assignments,
+                                selection.as_ref(),
+                                xid.clone(),  // 克隆xid避免所有权问题
+                                branch_id,
+                            )
+                            .await?;
                         }
-                        let vec_str: Vec<String> =
-                            assignments.iter().map(|it| it.target.to_string()).collect();
-
-                        println!("assignments-----CLO--------{:?}", vec_str);
-
-                        // 获取before_image
-                        let mut before_image_select_sql = {
-                            if where_clause.trim().is_empty() {
-                                format!("SELECT * FROM {} ", table_name)
-                            } else {
-                                format!("SELECT * FROM {} WHERE {}", table_name, where_clause)
-                            }
-                        };
-                        println!(
-                            "before_image_select_sql is ------ {}",
-                            before_image_select_sql
-                        );
-
-                        // todo : 把 before_image_select_sql 中的参数 替换为 statement.values 中对应的参数值
-
-                        if !where_clause.trim().is_empty() {
-                            if let Some(mut values) = statement.values.clone() {
-                                values.0.reverse();
-
-                                for value in values.0.iter() {
-                                    if before_image_select_sql.contains("?") {
-                                        let index = before_image_select_sql.find("?").unwrap();
-                                        before_image_select_sql.replace_range(
-                                            index..index + 1,
-                                            value.to_string().as_str(),
-                                        );
-                                    }
-                                }
-
-                                println!(
-                                    "before_image_select_sql ---EEENNND-- {:?}",
-                                    before_image_select_sql
-                                );
-
-                                for (param_flag, value) in assignments.iter().zip(values.iter()) {
-                                    println!(
-                                        "params--------------{:?}----{:?}",
-                                        param_flag,
-                                        value.to_string()
-                                    );
-                                }
-
-                                // todo : 把 before_image_select_sql 中的参数 替换为 statement.values 中对应的参数值
-                                let select_before = Statement::from_sql_and_values(
-                                    ConnectionTrait::get_database_backend(
-                                        &self.at_connection_proxy,
-                                    ),
-                                    before_image_select_sql.clone(),
-                                    values.clone(), // 这里直接使用原始参数是不对的
-                                );
-
-                                let before_values =
-                                    self.at_connection_proxy.query_all_raw(select_before).await;
-                                println!("r--select_before------------{:?}", before_values);
-
-                                if let Ok(old_values) = &before_values {
-                                    let key_sql = format!(
-                                        "SHOW KEYS FROM {} WHERE Key_name = 'PRIMARY'",
-                                        table_name
-                                    );
-                                    let key_select = Statement::from_string(
-                                        ConnectionTrait::get_database_backend(
-                                            &self.at_connection_proxy,
-                                        ),
-                                        key_sql,
-                                    );
-                                    let key_select =
-                                        self.at_connection_proxy.query_all_raw(key_select).await;
-                                    if let Ok(key_select) = key_select {
-                                        let keys: Vec<_> = key_select
-                                            .iter()
-                                            .filter_map(|key| {
-                                                key.try_get::<String>("", "Column_name").ok()
-                                            })
-                                            .collect();
-
-                                        let mut key_values = HashMap::new();
-                                        keys.iter().for_each(|key| {
-                                            let values = old_values
-                                                .iter()
-                                                .filter_map(|old_value| {
-                                                    let r =
-                                                        old_value.try_get_by::<i64, &str>(key).ok();
-                                                    println!("----try_get_by--{}-{:?}", key, r);
-                                                    r.map(|r| r.to_string())
-                                                })
-                                                .collect::<Vec<_>>();
-                                            key_values.insert(key.to_string(), values);
-                                        });
-
-                                        old_values.iter().for_each(|old_one| {
-                                            old_one
-                                                .try_as_mysql_row()
-                                                .unwrap()
-                                                .columns()
-                                                .iter()
-                                                .for_each(|column| {
-                                                    let r = column.type_info();
-                                                    println!(
-                                                        "----type_info--------------{:?}",
-                                                        r.name()
-                                                    );
-                                                })
-                                        });
-
-                                        let key_str = key_values
-                                            .iter()
-                                            .map(|(key, values)| {
-                                                format!("{}:{}", key, values.join("_"))
-                                            })
-                                            .collect::<Vec<String>>()
-                                            .join(",");
-
-                                        let session = RSEATA_CLIENT_SESSION.try_get().ok();
-                                        if let Some(session) = session {
-                                            session.set_branch_luck_keys(key_str).await;
-                                        }
-                                    }
-                                }
-                            }
+                        sqlparser::ast::Statement::Insert(insert) => {
+                            self.process_insert_simple(&insert, xid.clone(), branch_id).await?;  // 克隆xid
                         }
-
-                        // let before_result =  self.0.execute_unprepared(select_sql.as_ref()).await?;
-                        let before = self.query_as_json(&before_image_select_sql).await;
-                        match &before {
-                            Ok(data) => {
-                                let old = serde_json::to_string(&data).unwrap_or_default();
-                                println!("before old-------{}", old);
-
-                                // 生成回滚sql
-                                // fn generate_update_rollback(table: &str, data: &Value) -> String {
-                                //     let mut sql = format!("UPDATE {} SET ", table);
-                                //     if let Some(first_row) = data.as_array().and_then(|a| a.first()) {
-                                //         for (key, value) in first_row.as_object().unwrap() {
-                                //             sql.push_str(&format!("{} = {}, ", key, value));
-                                //         }
-                                //         sql.truncate(sql.len() - 2);
-                                //         sql.push_str(" WHERE ..."); // 根据主键生成条件
-                                //     }
-                                //     sql
-                                // }
-                                //
-
-                                let mut sql = format!("UPDATE {} SET ", table);
-                                if let Some(first_row) = data.as_array().and_then(|a| a.first()) {
-                                    for (key, value) in first_row.as_object().unwrap() {
-                                        if vec_str.contains(key) {
-                                            sql.push_str(&format!("{} = {}, ", key, value));
-                                        }
-                                    }
-                                    sql.truncate(sql.len() - 2);
-                                    sql.push_str(format!(" WHERE {}", where_clause).as_str()); // 根据主键生成条件
-                                }
-                                println!("---back sql-------{}", sql);
-                                let back = self
-                                    .at_connection_proxy
-                                    .execute_unprepared(sql.as_str())
-                                    .await;
-                                println!("---back sql--back-----{:?}", back);
-                            }
-                            Err(e) => {
-                                eprintln!("{}", e);
-                            }
+                        sqlparser::ast::Statement::Delete(delete) => {
+                            self.process_delete_simple(&delete, xid.clone(), branch_id).await?;  // 克隆xid
                         }
-
-                        println!("before is-------{:?}", before);
-                    } else if let sqlparser::ast::Statement::Insert(i) = parsed_statement {
-                        // Insert没有 before_image
-                    } else if let sqlparser::ast::Statement::Delete(i) = parsed_statement {
-                        // 记录 Delete 的 before_image
+                        _ => {
+                            // 其他语句类型，不记录undo log
+                            println!("Skipping undo log for statement type: {:?}", parsed_statement);
+                        }
                     }
-
-                    println!("{:#?}", statement);
                 }
             }
-            Err(e) => eprintln!("Parse error: {}", e),
+            Err(e) => {
+                eprintln!("SQL parse error: {}", e);
+                // 解析失败时不记录undo log，但继续执行SQL
+            }
         }
 
         Ok(())
     }
 
-    async fn process_luck_keys(&self, update: &sqlparser::ast::Statement) -> Result<(), DbErr> {
+    /// 处理UPDATE语句，捕获before_image和after_image
+    async fn process_update(
+        &self,
+        statement: &Statement,
+        table: &sqlparser::ast::TableWithJoins,
+        assignments: &[sqlparser::ast::Assignment],
+        selection: Option<&sqlparser::ast::Expr>,
+        xid: Xid,
+        branch_id: BranchId,
+    ) -> Result<(), DbErr> {
+        use crate::sea_orm::at::undo_log::{create_row_image_from_single_row, create_undo_log};
+        use rseata_core::branch::undo_log::SQLType;
+
+        let table_name: String = table.relation.to_string();
+        let where_clause: String = selection.map(|e| e.to_string()).unwrap_or_default();
+
+        println!("Processing UPDATE on table: {}, where: {}", table_name, where_clause);
+
+        // 1. 获取before_image
+        let before_image_select_sql = if where_clause.trim().is_empty() {
+            format!("SELECT * FROM {} ", table_name)
+        } else {
+            format!("SELECT * FROM {} WHERE {}", table_name, where_clause)
+        };
+
+        println!("Before image SQL: {}", before_image_select_sql);
+
+        // 执行查询获取before_image
+        let before_stmt = if let Some(values) = &statement.values {
+            // 使用原始参数值
+            Statement::from_sql_and_values(
+                ConnectionTrait::get_database_backend(&self.at_connection_proxy),
+                before_image_select_sql.clone(),
+                values.clone(),
+            )
+        } else {
+            Statement::from_string(
+                ConnectionTrait::get_database_backend(&self.at_connection_proxy),
+                before_image_select_sql.clone(),
+            )
+        };
+
+        let before_results = self.at_connection_proxy.query_all_raw(before_stmt).await?;
+
+        // 为每一行创建undo log
+        let mut undo_logs_guard = self.undo_logs.lock().await;
+        let mut all_row_images = Vec::new();
+
+        for row in before_results.iter() {
+            if let Ok(row_image) = create_row_image_from_single_row(row) {
+                all_row_images.push(row_image.clone());
+
+                // 为每一行创建单独的undo log
+                let undo_log = create_undo_log(
+                    branch_id,
+                    xid.clone(),  // 克隆xid避免所有权问题
+                    table_name.clone(),
+                    SQLType::UPDATE,
+                    Some(row_image),
+                    None, // UPDATE的after_image在AT模式中通常不保存
+                );
+
+                undo_logs_guard.push(undo_log);
+                println!("Added UPDATE undo log for row");
+            }
+        }
+
+        println!("Captured {} before image rows, created {} undo logs",
+                 all_row_images.len(), undo_logs_guard.len());
+
+        // 记录锁键（用于全局锁检查）
+        if !all_row_images.is_empty() {
+            drop(undo_logs_guard); // 释放锁，避免死锁
+            self.record_lock_keys(&table_name, &all_row_images).await?;
+        }
+
+        Ok(())
+    }
+
+    /// 处理INSERT语句，只记录after_image
+    async fn process_insert_simple(
+        &self,
+        insert: &sqlparser::ast::Insert,
+        xid: Xid,
+        branch_id: BranchId,
+    ) -> Result<(), DbErr> {
+        use crate::sea_orm::at::undo_log::{create_row_image_from_single_row, create_undo_log};
+        use rseata_core::branch::undo_log::SQLType;
+
+        // 从insert语句中获取表名
+        let table_name = insert.table.to_string();
+        println!("Processing INSERT on table: {}", table_name);
+
+        if let Some(source) = &insert.source {
+            match &*source.body {
+                sqlparser::ast::SetExpr::Values(values) => {
+                    for row_values in &values.rows {
+                        let column_names: Vec<String> = insert.columns.iter()
+                            .map(|col| col.value.clone())
+                            .collect();
+
+                        let mut column_values: Vec<serde_json::Value> = Vec::new();
+
+                        for expr in row_values {
+                            let value = self.expr_to_json_value(expr)?;
+                            column_values.push(value);
+                        }
+
+                        let row_image = RowImage {
+                            columns: column_names.clone(),
+                            values: column_values,
+                        };
+
+                        let undo_log = create_undo_log(
+                            branch_id,
+                            xid.clone(),  // 克隆xid避免所有权问题
+                            table_name.clone(),
+                            SQLType::INSERT,
+                            None, // INSERT没有before_image
+                            Some(row_image), // 保存插入的数据作为after_image
+                        );
+
+                        // 添加到undo logs集合
+                        let mut undo_logs = self.undo_logs.lock().await;
+                        undo_logs.push(undo_log);
+                        println!("Added INSERT undo log to collection");
+                    }
+                }
+                // 对于INSERT ... SELECT的情况，处理方式不同
+                _ => {
+                    // 对于复杂的INSERT语句，暂时只记录基本信息
+                    let undo_log = create_undo_log(
+                        branch_id,
+                        xid.clone(),  // 克隆xid避免所有权问题
+                        table_name,
+                        SQLType::INSERT,
+                        None, // INSERT没有before_image
+                        None, // 暂时无法获取插入的数据
+                    );
+
+                    let mut undo_logs = self.undo_logs.lock().await;
+                    undo_logs.push(undo_log);
+                    println!("Added INSERT undo log to collection (complex statement)");
+                }
+            }
+        } else {
+            // 如果没有source，记录一个基本的undo日志
+            let undo_log = create_undo_log(
+                branch_id,
+                xid.clone(),  // 克隆xid避免所有权问题
+                table_name,
+                SQLType::INSERT,
+                None, // INSERT没有before_image
+                None, // 暂时无法获取插入的数据
+            );
+
+            let mut undo_logs = self.undo_logs.lock().await;
+            undo_logs.push(undo_log);
+            println!("Added INSERT undo log to collection (no source)");
+        }
+
+        Ok(())
+    }
+
+    /// 处理DELETE语句，记录before_image用于回滚
+    async fn process_delete_simple(
+        &self,
+        delete: &sqlparser::ast::Delete,
+        xid: Xid,
+        branch_id: BranchId,
+    ) -> Result<(), DbErr> {
+        use crate::sea_orm::at::undo_log::{create_row_image_from_single_row, create_undo_log};
+        use rseata_core::branch::undo_log::SQLType;
+
+        let table_name = delete.from.to_string();
+        let where_clause = delete
+            .selection
+            .as_ref()
+            .map(|e| e.to_string())
+            .unwrap_or_default();
+
+        println!("Processing DELETE on table: {}, where: {}", table_name, where_clause);
+
+        // 1. 获取before_image（即将被删除的行）
+        let before_image_select_sql = if where_clause.trim().is_empty() {
+            format!("SELECT * FROM {} ", table_name)
+        } else {
+            format!("SELECT * FROM {} WHERE {}", table_name, where_clause)
+        };
+
+        println!("Before image SQL: {}", before_image_select_sql);
+
+        // 2. 执行查询获取before_image
+        let before_stmt = Statement::from_string(
+            ConnectionTrait::get_database_backend(&self.at_connection_proxy),
+            before_image_select_sql.clone(),
+        );
+
+        let before_results = self.at_connection_proxy.query_all_raw(before_stmt).await?;
+
+        // 3. 为每一行创建undo log
+        let mut undo_logs_guard = self.undo_logs.lock().await;
+        let mut all_row_images = Vec::new();
+
+        for row in before_results.iter() {
+            if let Ok(row_image) = create_row_image_from_single_row(row) {
+                all_row_images.push(row_image.clone());
+
+                let undo_log = create_undo_log(
+                    branch_id,
+                    xid.clone(),  // 克隆xid避免所有权问题
+                    table_name.clone(),
+                    SQLType::DELETE,
+                    Some(row_image),
+                    None,
+                );
+
+                undo_logs_guard.push(undo_log);
+                println!("Added DELETE undo log for row");
+            }
+        }
+
+        println!("Captured {} before image rows, created {} undo logs",
+                 all_row_images.len(), undo_logs_guard.len());
+
+        // 4. 记录锁键
+        if !all_row_images.is_empty() {
+            drop(undo_logs_guard); // 释放锁，避免死锁
+            self.record_lock_keys(&table_name, &all_row_images).await?;
+        }
+
+        Ok(())
+    }
+
+    /// 处理DELETE语句，只记录before_image
+    async fn process_delete(
+        &self,
+        statement: &Statement,
+        from: &sqlparser::ast::TableWithJoins,
+        selection: Option<&sqlparser::ast::Expr>,
+        xid: Xid,
+        branch_id: BranchId,
+    ) -> Result<(), DbErr> {
+        use crate::sea_orm::at::undo_log::{create_row_image_from_single_row, create_undo_log};
+        use rseata_core::branch::undo_log::SQLType;
+
+        let table_name = from.relation.to_string();
+        let where_clause = selection.map(|e| e.to_string()).unwrap_or_default();
+
+        println!("Processing DELETE on table: {}, where: {}", table_name, where_clause);
+
+        // 1. 获取before_image
+        let before_image_select_sql = if where_clause.trim().is_empty() {
+            format!("SELECT * FROM {} ", table_name)
+        } else {
+            format!("SELECT * FROM {} WHERE {}", table_name, where_clause)
+        };
+
+        println!("Before image SQL: {}", before_image_select_sql);
+
+        // 执行查询获取before_image
+        let before_stmt = if let Some(values) = &statement.values {
+            Statement::from_sql_and_values(
+                ConnectionTrait::get_database_backend(&self.at_connection_proxy),
+                before_image_select_sql.clone(),
+                values.clone(),
+            )
+        } else {
+            Statement::from_string(
+                ConnectionTrait::get_database_backend(&self.at_connection_proxy),
+                before_image_select_sql.clone(),
+            )
+        };
+
+        let before_results = self.at_connection_proxy.query_all_raw(before_stmt).await?;
+
+        // 为每一行创建undo log
+        let mut undo_logs_guard = self.undo_logs.lock().await;
+        let mut all_row_images = Vec::new();
+
+        for row in before_results.iter() {
+            if let Ok(row_image) = create_row_image_from_single_row(row) {
+                all_row_images.push(row_image.clone());
+
+                // 为每一行创建单独的undo log
+                let undo_log = create_undo_log(
+                    branch_id,
+                    xid.clone(),  // 克隆xid避免所有权问题
+                    table_name.clone(),
+                    SQLType::DELETE,
+                    Some(row_image),
+                    None,
+                );
+
+                undo_logs_guard.push(undo_log);
+                println!("Added DELETE undo log for row");
+            }
+        }
+
+        println!("Captured {} before image rows, created {} undo logs",
+                 all_row_images.len(), undo_logs_guard.len());
+
+        // 记录锁键
+        if !all_row_images.is_empty() {
+            drop(undo_logs_guard); // 释放锁，避免死锁
+            self.record_lock_keys(&table_name, &all_row_images).await?;
+        }
+
+        Ok(())
+    }
+
+    /// 记录锁键（主键值），用于全局锁检查
+    async fn record_lock_keys(
+        &self,
+        table_name: &str,
+        row_images: &[RowImage],
+    ) -> Result<(), DbErr> {
+        use std::collections::HashMap;
+
+        // 查询表的主键
+        let key_sql = format!(
+            "SHOW KEYS FROM {} WHERE Key_name = 'PRIMARY'",
+            table_name
+        );
+        let key_select = Statement::from_string(
+            ConnectionTrait::get_database_backend(&self.at_connection_proxy),
+            key_sql,
+        );
+
+        let key_results = self.at_connection_proxy.query_all_raw(key_select).await?;
+        let primary_keys: Vec<String> = key_results
+            .iter()
+            .filter_map(|row| row.try_get::<String>("", "Column_name").ok())
+            .collect();
+
+        println!("Primary keys for {}: {:?}", table_name, primary_keys);
+
+        if primary_keys.is_empty() {
+            // 没有主键，使用所有列作为锁键
+            let all_keys: Vec<String> = row_images
+                .iter()
+                .flat_map(|img| img.columns.clone())
+                .collect::<std::collections::HashSet<_>>()
+                .into_iter()
+                .collect();
+
+            let key_str = all_keys.join(",");
+            let session = RSEATA_CLIENT_SESSION.try_get().ok();
+            if let Some(session) = session {
+                session.set_branch_lock_keys(key_str).await;
+            }
+            return Ok(());
+        }
+
+        // 提取主键值
+        let mut lock_keys_map = HashMap::new();
+        for pk in &primary_keys {
+            let values: Vec<String> = row_images
+                .iter()
+                .filter_map(|img| {
+                    img.columns
+                        .iter()
+                        .position(|col| col == pk)
+                        .and_then(|idx| {
+                            // 将值转换为字符串
+                            Some(img.values.get(idx)?.to_string())
+                        })
+                })
+                .collect();
+            lock_keys_map.insert(pk.clone(), values);
+        }
+
+        // 构建锁键字符串格式: "pk1:value1_value2,pk2:value1_value2"
+        let key_str = lock_keys_map
+            .iter()
+            .map(|(key, values)| format!("{}:{}", key, values.join("_")))
+            .collect::<Vec<String>>()
+            .join(",");
+
+        println!("Lock keys: {}", key_str);
+
+        // 保存到会话
+        let session = RSEATA_CLIENT_SESSION.try_get().ok();
+        if let Some(session) = session {
+            session.set_branch_lock_keys(key_str).await;
+        }
+
+        Ok(())
+    }
+
+    /// 将SQL表达式转换为JSON值
+    fn expr_to_json_value(&self, expr: &sqlparser::ast::Expr) -> Result<serde_json::Value, DbErr> {
+        match expr {
+            sqlparser::ast::Expr::Value(value_with_span) => {
+                // 为了兼容不同的sqlparser版本，使用更通用的处理方式
+                // 将value转换为字符串，再尝试解析为适当的JSON类型
+                let value_str = value_with_span.to_string();
+
+                // 尝试判断值的类型
+                if value_str.starts_with('\'') || value_str.starts_with('"') {
+                    // 字符串类型，去掉引号
+                    let cleaned = value_str.trim_matches(|c| c == '\'' || c == '"');
+                    Ok(serde_json::Value::String(cleaned.to_string()))
+                } else if value_str.eq_ignore_ascii_case("true") {
+                    Ok(serde_json::Value::Bool(true))
+                } else if value_str.eq_ignore_ascii_case("false") {
+                    Ok(serde_json::Value::Bool(false))
+                } else if value_str.eq_ignore_ascii_case("null") {
+                    Ok(serde_json::Value::Null)
+                } else if let Ok(num_val) = value_str.parse::<i64>() {
+                    Ok(serde_json::Value::Number(num_val.into()))
+                } else if let Ok(num_val) = value_str.parse::<f64>() {
+                    // 确保是有效数字
+                    if num_val.is_finite() {
+                        Ok(serde_json::Value::from(num_val))
+                    } else {
+                        Ok(serde_json::Value::String(value_str))
+                    }
+                } else {
+                    Ok(serde_json::Value::String(value_str))
+                }
+            },
+            _ => {
+                // 对于复杂表达式，将其转换为字符串
+                Ok(serde_json::Value::String(expr.to_string()))
+            }
+        }
+    }
+
+    async fn process_lock_keys(&self, update: &sqlparser::ast::Statement) -> Result<(), DbErr> {
         if let sqlparser::ast::Statement::Update {
             table,
             assignments,

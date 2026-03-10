@@ -29,6 +29,14 @@ RSeata是一个基于Rust语言的分布式事务解决方案，旨在以高性�
     2. TM (Transaction Manager) - 事务管理器,定义全局事务的范围：开始全局事务、提交或回滚全局事务。
     3. RM (Resource Manager) - 资源管理器 管理分支事务处理的资源，与TC交谈以注册分支事务和报告分支事务的状态，并驱动分支事务提交或回滚。
 
+### 最新改进
+
+我们最近对框架进行了多项改进：
+- **AT模式增强**: 完善了undo log记录机制，确保INSERT、UPDATE、DELETE操作都能正确记录前后镜像，解决了SQL注入安全风险
+- **XA模式改进**: 增强了XA事务的两阶段提交流程，改善了事务状态管理和错误处理
+- **性能优化**: 优化了SQL解析和undo log存储，提高了事务处理性能
+- **安全性提升**: 修复了参数绑定的安全问题，增强了数据操作的安全性
+
 ## 快速开始
 
 + [集成示例：axum、tonic grpc、sea-orm、mysql、rseata、xa模式](https://github.com/oulover/rseata/tree/master/examples)

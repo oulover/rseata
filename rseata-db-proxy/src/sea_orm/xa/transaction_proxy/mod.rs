@@ -5,6 +5,7 @@ mod impl_transaction_session;
 mod impl_transaction_trait;
 
 use crate::sea_orm::xa::connection_proxy::{XAConnectionProxy, XAId};
+use crate::sea_orm::xa::transaction_proxy::impl_branch_transaction::XABranchTransaction;
 use rseata_core::branch::branch_manager_outbound::BranchManagerOutbound;
 use rseata_core::branch::branch_transaction::BranchTransactionRegistry;
 use rseata_core::branch::BranchType;
@@ -158,16 +159,17 @@ impl XATransactionProxy {
         if let Some(session) = &session {
             let xid_guard = session.get_xid();
             if let Some(xid) = xid_guard {
-                let lock_keys = session.get_branch_luck_keys().await.unwrap_or_default();
+                let lock_keys = session.get_branch_lock_keys().await.unwrap_or_default();
+                let branch_transaction = XABranchTransaction::new(self.xa_connection_proxy.clone());
                 let branch_id = RSEATA_RM
                     .branch_transaction_registry(
-                        RSEATA_RM.resource_info.get_branch_type().await,
+                        BranchType::XA,
                         RSEATA_RM.resource_info.get_resource_id().await,
                         RSEATA_RM.resource_info.get_client_id().await,
                         xid,
                         "application_data".into(),
                         lock_keys,
-                        Box::new(self.clone()),
+                        Box::new(branch_transaction),
                     )
                     .await
                     .map_err(|e| DbErr::Custom(e.to_string()))?;
@@ -188,7 +190,7 @@ impl XATransactionProxy {
                     };
                     RSEATA_RM
                         .branch_report(
-                            BranchType::AT,
+                            BranchType::XA,
                             xid,
                             session.get_branch_id(),
                             branch_status,
@@ -211,7 +213,7 @@ impl XATransactionProxy {
                     let branch_status = rseata_core::branch::BranchStatus::PhaseOneFailed;
                     RSEATA_RM
                         .branch_report(
-                            BranchType::AT,
+                            BranchType::XA,
                             xid,
                             session.get_branch_id(),
                             branch_status,

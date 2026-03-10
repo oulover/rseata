@@ -13,8 +13,11 @@ impl ConnectionTrait for ATTransactionProxy {
     async fn execute_raw(&self, stmt: Statement) -> Result<ExecResult, DbErr> {
         let session = RSEATA_CLIENT_SESSION.try_get().ok();
         println!("Transaction------execute_raw------------{:?}", session);
-        self.process_execute(&stmt).await.ok();
 
+        // 处理undo log捕获，如果失败则返回错误
+        self.process_execute(&stmt).await?;
+
+        // 执行原始SQL
         self.at_connection_proxy.execute_raw(stmt).await
     }
     async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult, DbErr> {

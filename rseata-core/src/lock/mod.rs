@@ -10,4 +10,5 @@ use serde::{Deserialize, Serialize};
 pub enum LockStatus {
     Locked = 1,
     Rollbacking = 2,
+    Released = 3,
 }

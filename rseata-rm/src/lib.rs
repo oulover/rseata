@@ -7,7 +7,7 @@ pub mod resource;
 
 lazy_static! {
     pub static ref RSEATA_RM: DefaultResourceManager =
-        DefaultResourceManager::new(ResourceInfo::new_with_env(BranchType::AT));
+        DefaultResourceManager::new(ResourceInfo::new_with_env());
 }
 
 pub async fn init() {

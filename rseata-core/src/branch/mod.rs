@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 pub mod branch_manager_inbound;
 pub mod branch_manager_outbound;
 pub mod branch_transaction;
+pub mod undo_log;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct BranchId(pub u64);

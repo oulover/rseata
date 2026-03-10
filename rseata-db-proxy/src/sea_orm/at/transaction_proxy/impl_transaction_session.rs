@@ -6,9 +6,9 @@ impl TransactionSession for ATTransactionProxy {
     async fn commit(self) -> Result<(), DbErr> {
         self.branch_register().await?;
         self.prepare_undo_log().await?;
-        let lucked = self.check_luck().await?;
-        if !lucked {
-            return Err(DbErr::Custom("luck error".to_string()));
+        let locked = self.check_lock().await?;
+        if !locked {
+            return Err(DbErr::Custom("lock error".to_string()));
         }
         let r = self.sea_transaction.commit().await;
         ATTransactionProxy::global_commit(r).await

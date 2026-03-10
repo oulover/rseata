@@ -22,7 +22,7 @@ pub struct ClientSession {
     rm: RwLock<Vec<String>>,
     branch_id: AtomicU64,
     branch_undo_logs: tokio::sync::RwLock<Vec<String>>,
-    branch_luck_keys: tokio::sync::RwLock<Option<String>>,
+    branch_lock_keys: tokio::sync::RwLock<Option<String>>,
 }
 
 impl ClientSession {
@@ -34,7 +34,7 @@ impl ClientSession {
             is_global_tx_started: AtomicBool::new(false),
             branch_id: AtomicU64::new(0),
             branch_undo_logs: tokio::sync::RwLock::new(Vec::new()),
-            branch_luck_keys: tokio::sync::RwLock::new(None),
+            branch_lock_keys: tokio::sync::RwLock::new(None),
         }
     }
 
@@ -68,27 +68,27 @@ impl ClientSession {
     pub async fn init_branch(&self) {
         if self.is_global_tx_started() {
             {
-                let mut luck = self.branch_undo_logs.write().await;
-                luck.clear();
+                let mut undo_logs = self.branch_undo_logs.write().await;
+                undo_logs.clear();
                 self.branch_id.store(0, Ordering::Release);
             }
 
             {
-                let mut branch_luck_keys = self.branch_luck_keys.write().await;
-                *branch_luck_keys = None;
+                let mut branch_lock_keys = self.branch_lock_keys.write().await;
+                *branch_lock_keys = None;
             }
         }
     }
 
-    pub async fn set_branch_luck_keys(&self, branch_luck_keys: String) {
-        let branch_luck_keys = branch_luck_keys.trim();
-        if !branch_luck_keys.is_empty() {
-            let mut luck = self.branch_luck_keys.write().await;
-            *luck = Some(branch_luck_keys.to_string());
+    pub async fn set_branch_lock_keys(&self, branch_lock_keys: String) {
+        let branch_lock_keys = branch_lock_keys.trim();
+        if !branch_lock_keys.is_empty() {
+            let mut lock = self.branch_lock_keys.write().await;
+            *lock = Some(branch_lock_keys.to_string());
         }
     }
 
-    pub async fn get_branch_luck_keys(&self) -> Option<String> {
-        self.branch_luck_keys.read().await.clone()
+    pub async fn get_branch_lock_keys(&self) -> Option<String> {
+        self.branch_lock_keys.read().await.clone()
     }
 }

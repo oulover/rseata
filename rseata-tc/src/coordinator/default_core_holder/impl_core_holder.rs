@@ -21,8 +21,9 @@ impl CoreHolder for DefaultCoreHolder {
         + Sync,
     > {
         match branch_type {
-            _ => {}
+            BranchType::AT => self.at_core.clone(),
+            BranchType::XA => self.xa_core.clone(),
+            _ => self.at_core.clone(), // default to AT core for unknown types
         }
-        self.at_core.clone()
     }
 }
